@@ -37,59 +37,58 @@
         <a-asset-item id="ship-model" src="ship.glb"></a-asset-item>
     </a-assets>
 
-    <a-sky color="#87CEEB"></a-sky> 
+    <a-sky color="#87CEEB"></a-sky>
     <a-plane position="0 0 0" rotation="-90 0 0" width="2000" height="2000" color="#1a5276"></a-plane>
+    <a-light type="ambient" intensity="1.5"></a-light>
+    <a-light type="directional" position="1 10 1" intensity="1"></a-light>
 
-    <a-light type="ambient" color="#ffffff" intensity="1.5"></a-light>
-    <a-light type="directional" color="#ffffff" position="5 10 5" intensity="1"></a-light>
-
-    <a-entity id="player-ship-wrapper" position="0 0 0">
-        <a-entity id="ship-entity" gltf-model="#ship-model" position="0 0.5 -5" scale="0.05 0.05 0.05">
-            <a-box opacity="0.1" color="red" wireframe="true"></a-box>
+    <a-entity id="ship-wrapper" position="0 0 0">
+        <a-entity id="actual-ship" gltf-model="#ship-model" position="0 0 -5" scale="0.1 0.1 0.1">
+            <a-box color="yellow" wireframe="true" scale="5 2 10" opacity="0.5"></a-box>
         </a-entity>
-        <a-entity camera look-controls position="0 1.6 0"></a-entity>
+        
+        <a-entity id="camera-rig" camera look-controls position="0 1.6 0"></a-entity>
     </a-entity>
 
-    <a-entity id="island-group" position="0 -0.5 -150">
+    <a-entity id="island-goal" position="0 -1 -150">
         <a-circle radius="50" color="#eedc82" rotation="-90 0 0"></a-circle>
         
         <a-entity position="0 0 -10">
-            <a-cylinder position="-3 1.2 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
-            <a-cylinder position="0 1.2 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
-            <a-cylinder position="3 1.2 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
-            <a-text value="Lucayan People" align="center" position="0 3 0" color="#5d4037" width="10"></a-text>
+            <a-cylinder position="-3 1 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
+            <a-cylinder position="0 1 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
+            <a-cylinder position="3 1 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
+            <a-text value="Lucayan People" align="center" position="0 3 0" color="#000" width="10"></a-text>
         </a-entity>
-
-        <a-cylinder position="-15 2 -15" radius="0.3" height="5" color="#5d4037"></a-cylinder>
-        <a-sphere position="-15 5 -15" radius="2.5" color="#228b22"></a-sphere>
     </a-entity>
 </a-scene>
 
     <script>
         function startSim() {
-            document.getElementById('overlay').classList.add('hidden');
+    document.getElementById('overlay').classList.add('hidden');
 
-            // Narration (Fact-based)
-            const msg = "Columbus believed he could reach the East by sailing West. His logic was based on the 'Fine Print' of ancient maps. After weeks at sea, he arrived at the Bahamas, encountering the Lucayan people who had lived there for centuries.";
-            const speech = new SpeechSynthesisUtterance(msg);
-            speech.rate = 0.9;
-            window.speechSynthesis.speak(speech);
+    // Informational Narration
+    const msg = "The logic of the voyage: sailing west to reach the east. After 33 days, the crew approaches Guanahani.";
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(msg));
 
-            // Movement Logic: The Island comes to you
-            let dest = document.getElementById('destination');
-            let z = -150;
-            let voyage = setInterval(() => {
-                z += 0.5; // Moving toward the ship
-                dest.setAttribute('position', `0 0 ${z}`);
-                
-                // ARRIVAL CHECK
-                if (z >= -15) {
-                    clearInterval(voyage);
-                    document.querySelector('a-sky').setAttribute('color', '#FFD700'); // Golden Sunset on arrival
-                    window.speechSynthesis.speak(new SpeechSynthesisUtterance("Arrival. October 12th. Guanahani."));
-                }
-            }, 50);
+    let shipWrapper = document.getElementById('ship-wrapper');
+    let currentZ = 0;
+
+    // Movement Logic
+    let voyage = setInterval(() => {
+        currentZ -= 0.5; // Move FORWARD into the scene
+        shipWrapper.setAttribute('position', `0 0 ${currentZ}`);
+
+        // Reality Check: Are we at the island?
+        if (currentZ <= -135) {
+            clearInterval(voyage);
+            arrival();
         }
+    }, 50);
+}
+
+function arrival() {
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance("Arrival. October 12, 1492. Meeting the Lucayan people."));
+}
     </script>
 </body>
 </html>
