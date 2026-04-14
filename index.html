@@ -1,105 +1,90 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Columbus: The 1492 Simulation</title>
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+    <title>Columbus Simulation: The Landing</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <style>
-        body { margin: 0; font-family: 'Garamond', serif; overflow: hidden; }
+        body { margin: 0; overflow: hidden; font-family: 'Georgia', serif; }
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8); z-index: 100;
+            background: #1a1a1a; z-index: 100;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-        #map-frame {
-            border: 10px solid #5d4037; background: #f2e3bc; padding: 20px;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5); text-align: center;
+        #map-box {
+            border: 6px solid #d4af37; background: #fdf5e6; padding: 20px;
+            text-align: center; box-shadow: 0 0 30px #000;
         }
-        #map-img { width: 500px; max-width: 80vw; display: block; margin-bottom: 20px; }
         button {
-            background: #d32f2f; color: white; padding: 15px 40px;
-            font-size: 24px; border: none; cursor: pointer; transition: 0.3s;
+            background: #8b0000; color: #ffd700; padding: 12px 35px;
+            font-size: 20px; border: 2px solid #ffd700; cursor: pointer;
         }
-        button:hover { background: #b71c1c; transform: scale(1.1); }
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
     <div id="overlay">
-        <div id="map-frame">
-            <h1 style="color: #5d4037;">The Ocean Blue - 1492</h1>
-            <img id="map-img" src="map.png" alt="Voyage Map">
-            <button onclick="launchSimulation()">SET OUT</button>
+        <div id="map-box">
+            <h2 style="color: #5d4037;">VOYAGE DATA</h2>
+            <img src="map.jpg" style="width: 400px; border: 1px solid #333; margin-bottom: 15px;">
+            <br>
+            <button onclick="startSim()">SET OUT</button>
         </div>
     </div>
 
     <a-scene>
         <a-assets>
-            <a-asset-item id="caravel" src="ship.glb"></a-asset-item>
+            <a-asset-item id="ship-model" src="ship.glb"></a-asset-item>
         </a-assets>
 
-        <a-entity id="main-env" environment="preset: ocean; skyColor: #ff9e80; horizonColor: #004d40; dressingAmount: 0"></a-entity>
-        
-        <a-entity id="voyage-group" position="0 0 0">
-            <a-entity gltf-model="#caravel" scale="1 1 1" position="0 0.2 -5"></a-entity>
+        <a-sky color="#87CEEB"></a-sky> <a-plane position="0 0 0" rotation="-90 0 0" width="1000" height="1000" color="#006994"></a-plane> <a-light type="ambient" color="#ffffff" intensity="0.7"></a-light>
+        <a-light type="directional" color="#ffd700" position="-1 2 1" intensity="1"></a-light>
+
+        <a-entity id="player-rig">
+            <a-entity gltf-model="#ship-model" position="0 0.5 -5" scale="1 1 1"></a-entity>
             <a-entity camera look-controls position="0 1.6 0"></a-entity>
         </a-entity>
 
-        <a-entity id="island-target" position="0 -1 -200">
+        <a-entity id="destination" position="0 0 -150">
             <a-circle radius="40" color="#f2e3bc" rotation="-90 0 0"></a-circle>
             
             <a-entity position="0 0 -5">
-                <a-cylinder position="-2 1 0" radius="0.3" height="2" color="#FFD700"></a-cylinder>
-                <a-cylinder position="0 1 -1" radius="0.3" height="2" color="#FFD700"></a-cylinder>
-                <a-cylinder position="2 1 0" radius="0.3" height="2" color="#FFD700"></a-cylinder>
-                <a-text value="Native Greeting" align="center" position="0 2.5 0" color="#FFF"></a-text>
+                <a-cylinder position="-2 1 0" radius="0.25" height="1.8" color="#CD7F32"></a-cylinder>
+                <a-cylinder position="0 1 -1" radius="0.25" height="1.8" color="#CD7F32"></a-cylinder>
+                <a-cylinder position="2 1 0" radius="0.25" height="1.8" color="#CD7F32"></a-cylinder>
+                <a-text value="Lucayan People" align="center" position="0 2.5 0" color="#000" width="4"></a-text>
             </a-entity>
 
-            <a-cone position="-10 3 -10" radius-bottom="0.5" height="6" color="#3e2723"></a-cone>
-            <a-sphere position="-10 6 -10" radius="2" color="#228b22"></a-sphere>
+            <a-cylinder position="-10 2 -10" radius="0.2" height="4" color="#5d4037"></a-cylinder>
+            <a-sphere position="-10 4 -10" radius="1.5" color="#228b22"></a-sphere>
         </a-entity>
 
     </a-scene>
 
     <script>
-        function launchSimulation() {
-            // Hide the UI
+        function startSim() {
             document.getElementById('overlay').classList.add('hidden');
 
-            // Narration: Providing Information (Not Monologue)
-            const voyageInfo = "In 1492, Christopher Columbus set sail from Palos, Spain, seeking a westward route to Asia. After thirty-three days at sea, his fleet reached the Lucayan Islands in the present-day Bahamas. This was a moment of profound transformation for global geography and human history.";
-            
-            const synth = window.speechSynthesis;
-            const utter = new SpeechSynthesisUtterance(voyageInfo);
-            utter.rate = 0.9;
-            utter.pitch = 0.8;
-            synth.speak(utter);
+            // Narration (Fact-based)
+            const msg = "Columbus believed he could reach the East by sailing West. His logic was based on the 'Fine Print' of ancient maps. After weeks at sea, he arrived at the Bahamas, encountering the Lucayan people who had lived there for centuries.";
+            const speech = new SpeechSynthesisUtterance(msg);
+            speech.rate = 0.9;
+            window.speechSynthesis.speak(speech);
 
-            // The Simulation Movement Logic
-            let island = document.getElementById('island-target');
-            let env = document.getElementById('main-env');
-            let posZ = -200;
-
-            // Animate the island approaching (The Voyage)
-            let moveInterval = setInterval(() => {
-                posZ += 0.5; // Speed of the voyage
-                island.setAttribute('position', `0 -1 ${posZ}`);
-
-                // Arrival Logic
-                if (posZ >= -15) {
-                    clearInterval(moveInterval);
-                    arrival();
+            // Movement Logic: The Island comes to you
+            let dest = document.getElementById('destination');
+            let z = -150;
+            let voyage = setInterval(() => {
+                z += 0.5; // Moving toward the ship
+                dest.setAttribute('position', `0 0 ${z}`);
+                
+                // ARRIVAL CHECK
+                if (z >= -15) {
+                    clearInterval(voyage);
+                    document.querySelector('a-sky').setAttribute('color', '#FFD700'); // Golden Sunset on arrival
+                    window.speechSynthesis.speak(new SpeechSynthesisUtterance("Arrival. October 12th. Guanahani."));
                 }
             }, 50);
-        }
-
-        function arrival() {
-            // Change atmosphere to Tropical Forest for the island arrival
-            document.getElementById('main-env').setAttribute('environment', 'preset: forest; lighting: morning');
-            
-            const arrivalText = "Land Ho. The crew arrives at Guanahani. They encounter the Lucayan people, beginning an exchange of culture and resources that would reshape the world.";
-            window.speechSynthesis.speak(new SpeechSynthesisUtterance(arrivalText));
         }
     </script>
 </body>
