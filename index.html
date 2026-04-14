@@ -1,21 +1,21 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>The 1492 Encounter</title>
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <title>Columbus: The 1492 Encounter</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Georgia', serif; }
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #2b1d1d; z-index: 100; display: flex; align-items: center; justify-content: center;
+            background: #1a0f0f; z-index: 100; display: flex; align-items: center; justify-content: center;
         }
-        #intro-card {
-            border: 8px double #d4af37; background: #fdf5e6; padding: 30px;
-            box-shadow: 0 0 50px #000; text-align: center;
+        #map-ui {
+            background: #fdf5e6; padding: 30px; border: 8px double #d4af37;
+            text-align: center; box-shadow: 0 0 50px #000;
         }
         button {
-            background: #b71c1c; color: #ffd700; padding: 15px 45px;
-            font-size: 24px; border: 2px solid #ffd700; cursor: pointer; text-transform: uppercase;
+            background: #b71c1c; color: #ffd700; padding: 15px 40px;
+            font-size: 24px; border: 2px solid #ffd700; cursor: pointer;
         }
         .hidden { display: none !important; }
     </style>
@@ -23,97 +23,86 @@
 <body>
 
     <div id="overlay">
-        <div id="intro-card">
-            <h1 style="color: #5d4037;">THE LOGICAL VOYAGE</h1>
-            <img src="map.png" style="width: 450px; margin-bottom: 20px;">
-            <p style="color: #333; max-width: 400px; margin-bottom: 25px;">Follow the 1492 journey from the side profile to the moment of first contact.</p>
-            <button onclick="launchVoyage()">SET OUT</button>
+        <div id="map-ui">
+            <h1 style="color: #5d4037;">SCENE I: THE VOYAGE</h1>
+            <img src="map.png" style="width: 450px; margin-bottom: 20px; border: 1px solid #000;">
+            <br>
+            <button onclick="startVoyage()">SET OUT</button>
         </div>
     </div>
 
-    <a-scene shadow="type: pcfsoft" renderer="antialias: true; colorManagement: true;">
+    <a-scene renderer="colorManagement: true;">
         <a-assets>
-            <a-asset-item id="artifact-ship" src="ship.glb"></a-asset-item>
-            <a-asset-item id="artifact-island" src="island.glb"></a-asset-item>
-            <a-asset-item id="artifact-columbus" src="columbus.glb"></a-asset-item>
-            <a-asset-item id="artifact-lucayan" src="lucayan.glb"></a-asset-item>
+            <a-asset-item id="ship-m" src="ship.glb"></a-asset-item>
+            <a-asset-item id="columbus-m" src="columbus.glb"></a-asset-item>
+            <a-asset-item id="lucayan-m" src="lucayan.glb"></a-asset-item>
+            <a-asset-item id="island-m" src="island.glb"></a-asset-item>
         </a-assets>
 
-        <a-sky color="#87CEEB"></a-sky> 
-        <a-plane position="0 -0.1 0" rotation="-90 0 0" width="2000" height="2000" color="#006994"></a-plane> <a-light type="ambient" intensity="1.2"></a-light>
-        <a-light type="directional" position="5 10 5" intensity="1.2" castShadow="true" color="#ffd700"></a-light>
+        <a-sky color="#87CEEB"></a-sky>
+        <a-plane position="0 -0.1 0" rotation="-90 0 0" width="2000" height="2000" color="#006994"></a-plane>
+        <a-light type="ambient" intensity="1.2"></a-light>
+        <a-light type="directional" position="5 10 5" intensity="1.5" color="#ffd700"></a-light>
 
-        <a-entity id="scene1-container">
-            <a-entity id="scene1-camera" camera look-controls position="20 5 0" rotation="0 90 0"></a-entity>
+        <a-entity id="scene1-group">
+            <a-entity id="cam1" camera position="30 8 0" rotation="0 90 0" active="true"></a-entity>
             
-            <a-entity id="voyage-group" position="-50 0 -20">
-                <a-entity gltf-model="#artifact-ship" scale="0.1 0.1 0.1" rotation="0 90 0"></a-entity>
+            <a-entity id="moving-ship-container" position="-60 0 -25">
+                <a-entity gltf-model="#ship-m" scale="0.1 0.1 0.1" rotation="0 90 0"></a-entity>
             </a-entity>
+
+            <a-entity gltf-model="#island-m" position="50 -2 -30" scale="2 2 2"></a-entity>
         </a-entity>
 
-        <a-entity id="scene2-container" position="0 -100 -50" visible="false">
+        <a-entity id="scene2-group" position="0 -200 0" visible="false">
+            <a-entity id="cam2" camera position="0 2 12" rotation="0 0 0" active="false"></a-entity>
             
-            <a-entity gltf-model="#artifact-island" scale="5 5 5"></a-entity>
-            
-            <a-entity id="scene2-camera" camera position="0 2 10" rotation="0 0 0" active="false"></a-entity>
+            <a-entity gltf-model="#island-m" scale="10 10 10" position="0 -1 -10"></a-entity>
 
-            <a-entity id="character-meeting" position="0 1.5 5">
-                <a-entity gltf-model="#artifact-columbus" rotation="0 180 0"></a-entity>
+            <a-entity id="characters" position="0 0 0">
+                <a-entity gltf-model="#columbus-m" position="-4 0 0" scale="1.5 1.5 1.5" rotation="0 160 0"></a-entity>
                 
-                <a-entity position="-3 0 -2">
-                    <a-entity gltf-model="#artifact-lucayan"></a-entity>
-                </a-entity>
-                <a-entity position="3 0 -2">
-                    <a-entity gltf-model="#artifact-lucayan"></a-entity>
-                </a-entity>
-                <a-entity position="0 0 -4">
-                    <a-entity gltf-model="#artifact-lucayan"></a-entity>
-                </a-entity>
+                <a-entity gltf-model="#lucayan-m" position="2 0 -1" scale="1.5 1.5 1.5" rotation="0 -30 0"></a-entity>
+                <a-entity gltf-model="#lucayan-m" position="5 0 1" scale="1.5 1.5 1.5" rotation="0 -45 0"></a-entity>
             </a-entity>
         </a-entity>
-
     </a-scene>
 
     <script>
-        // Game State and Speech Synthesis
-        const speech = window.speechSynthesis;
-
-        function launchVoyage() {
-            // Hide Overlay
+        function startVoyage() {
             document.getElementById('overlay').classList.add('hidden');
-
-            // Narration 1 (Information-focused)
-            const info1 = "August 1492. Christopher Columbus departs Palos, Spain. Following a logic that sailing west will reach the east, his fleet enters the uncharted Atlantic. After thirty-three days, the ocean blue reveals its secret.";
-            const utter1 = new SpeechSynthesisUtterance(info1);
+            
+            // Narration 1
+            const utter1 = new SpeechSynthesisUtterance("August 1492. Driven by the logic of the fine print of ancient charts, Columbus leads his fleet into the unknown Atlantic. They sail for thirty-three days, moving toward a horizon they hope reveals the East.");
             utter1.rate = 0.9;
-            speech.speak(utter1);
+            window.speechSynthesis.speak(utter1);
 
-            // Simulation Pacing: The Voyage (Moves from -50 to +10)
-            let voyageRig = document.getElementById('voyage-group');
-            let positionX = -50;
-            let voyageTimer = setInterval(() => {
-                positionX += 0.2;
-                voyageRig.setAttribute('position', `${positionX} 0 -20`);
-                
-                // Reality Check: Are we at the destination?
-                if (positionX >= 10) {
-                    clearInterval(voyageTimer);
-                    transitionToIsland();
+            // Animate Side Profile (Scene 1)
+            let ship = document.getElementById('moving-ship-container');
+            let x = -60;
+            let move = setInterval(() => {
+                x += 0.25;
+                ship.setAttribute('position', `${x} 0 -25`);
+                if (x >= 20) {
+                    clearInterval(move);
+                    goToScene2();
                 }
             }, 50);
         }
 
-        function transitionToIsland() {
-            // Scene swap logic
-            document.getElementById('scene1-container').setAttribute('visible', false);
-            document.getElementById('scene2-container').setAttribute('visible', true);
+        function goToScene2() {
+            // Swap Cameras & Groups
+            document.getElementById('cam1').setAttribute('active', false);
+            document.getElementById('scene1-group').setAttribute('visible', false);
             
-            // Switch cameras: We make the beach POV active
-            document.getElementById('scene2-camera').setAttribute('active', true);
+            document.getElementById('scene2-group').setAttribute('position', '0 0 0');
+            document.getElementById('scene2-group').setAttribute('visible', true);
+            document.getElementById('cam2').setAttribute('active', true);
 
             // Narration 2
-            const info2 = "October 12th. Guanahani. Columbus reaches land, encountering the Lucayan people. This meeting is recorded in the 'Fine Print' of his logbooks, detailing an intricate exchange and the first contact between two worlds.";
-            speech.speak(new SpeechSynthesisUtterance(info2));
+            const utter2 = new SpeechSynthesisUtterance("October 12th. Landfall at Guanahani. On these vibrant shores, the Old World meets the New. Columbus encounters the Lucayan people—a moment of first contact that would reshape the map of human history forever.");
+            utter2.rate = 0.9;
+            window.speechSynthesis.speak(utter2);
         }
     </script>
 </body>
