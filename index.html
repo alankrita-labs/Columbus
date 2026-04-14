@@ -1,52 +1,106 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Columbus VR: The Logical Voyage</title>
+    <title>Columbus: The 1492 Simulation</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        body { margin: 0; font-family: 'Garamond', serif; overflow: hidden; }
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #map-frame {
+            border: 10px solid #5d4037; background: #f2e3bc; padding: 20px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5); text-align: center;
+        }
+        #map-img { width: 500px; max-width: 80vw; display: block; margin-bottom: 20px; }
+        button {
+            background: #d32f2f; color: white; padding: 15px 40px;
+            font-size: 24px; border: none; cursor: pointer; transition: 0.3s;
+        }
+        button:hover { background: #b71c1c; transform: scale(1.1); }
+        .hidden { display: none !important; }
+    </style>
 </head>
 <body>
-    <div id="hud">
-        <div id="map-ui">
-            <h3>LOGBOOK PROGRESS</h3>
-            <div class="progress-container">
-                <div id="progress-bar"></div>
-            </div>
+
+    <div id="overlay">
+        <div id="map-frame">
+            <h1 style="color: #5d4037;">The Ocean Blue - 1492</h1>
+            <img id="map-img" src="map.jpg" alt="Voyage Map">
+            <button onclick="launchSimulation()">SET OUT</button>
         </div>
-        <div id="narration-text">Click the Golden Compass to begin the voyage...</div>
     </div>
 
-    <a-scene cursor="rayOrigin: mouse">
+    <a-scene>
         <a-assets>
-            <img id="wood-texture" src="https://cdn.pixabay.com/photo/2016/11/21/17/41/wood-1846738_1280.jpg">
-            <audio id="sea-sound" src="https://www.soundjay.com/nature/ocean-wave-1.mp3"></audio>
+            <a-asset-item id="caravel" src="ship.glb"></a-asset-item>
         </a-assets>
 
-        <a-entity environment="preset: ocean; skyType: gradient; skyColor: #ff9e80; horizonColor: #004d40; lighting: point; lightPosition: 0 5 0"></a-entity>
-        <a-sound src="#sea-sound" autoplay="true" loop="true" volume="0.5"></a-sound>
+        <a-entity id="main-env" environment="preset: ocean; skyColor: #ff9e80; horizonColor: #004d40; dressingAmount: 0"></a-entity>
+        
+        <a-entity id="voyage-group" position="0 0 0">
+            <a-entity gltf-model="#caravel" scale="1 1 1" position="0 0.2 -5"></a-entity>
+            <a-entity camera look-controls position="0 1.6 0"></a-entity>
+        </a-entity>
 
-        <a-entity id="ship" position="0 0.2 -5">
-            <a-box width="8" depth="16" height="0.4" src="#wood-texture" repeat="2 4"></a-box>
+        <a-entity id="island-target" position="0 -1 -200">
+            <a-circle radius="40" color="#f2e3bc" rotation="-90 0 0"></a-circle>
             
-            <a-entity id="compass-group" position="0 1.2 -3">
-                <a-cylinder id="compass-base" radius="0.4" height="0.2" color="#FFD700"></a-cylinder>
-                <a-box id="compass-needle" width="0.05" depth="0.6" height="0.05" color="#D32F2F" position="0 0.11 0"></a-box>
-                <a-text value="NAVIGATE" align="center" position="0 0.3 0" color="#FFF" width="4"></a-text>
+            <a-entity position="0 0 -5">
+                <a-cylinder position="-2 1 0" radius="0.3" height="2" color="#FFD700"></a-cylinder>
+                <a-cylinder position="0 1 -1" radius="0.3" height="2" color="#FFD700"></a-cylinder>
+                <a-cylinder position="2 1 0" radius="0.3" height="2" color="#FFD700"></a-cylinder>
+                <a-text value="Native Greeting" align="center" position="0 2.5 0" color="#FFF"></a-text>
             </a-entity>
 
-            <a-box id="logbook" position="2 1.1 -2" width="0.6" depth="0.8" height="0.1" color="#f5f5dc" rotation="0 -20 0">
-                <a-text value="READ LOG" align="center" position="0 0.1 0" rotation="-90 0 0" color="#000" width="2"></a-text>
-            </a-box>
+            <a-cone position="-10 3 -10" radius-bottom="0.5" height="6" color="#3e2723"></a-cone>
+            <a-sphere position="-10 6 -10" radius="2" color="#228b22"></a-sphere>
         </a-entity>
 
-        <a-entity camera look-controls position="0 1.6 0">
-            <a-cursor fuse="false" raycaster="objects: #compass-group, #logbook" color="#FFEB3B"></a-cursor>
-        </a-entity>
     </a-scene>
 
-    <script src="game.js"></script>
+    <script>
+        function launchSimulation() {
+            // Hide the UI
+            document.getElementById('overlay').classList.add('hidden');
+
+            // Narration: Providing Information (Not Monologue)
+            const voyageInfo = "In 1492, Christopher Columbus set sail from Palos, Spain, seeking a westward route to Asia. After thirty-three days at sea, his fleet reached the Lucayan Islands in the present-day Bahamas. This was a moment of profound transformation for global geography and human history.";
+            
+            const synth = window.speechSynthesis;
+            const utter = new SpeechSynthesisUtterance(voyageInfo);
+            utter.rate = 0.9;
+            utter.pitch = 0.8;
+            synth.speak(utter);
+
+            // The Simulation Movement Logic
+            let island = document.getElementById('island-target');
+            let env = document.getElementById('main-env');
+            let posZ = -200;
+
+            // Animate the island approaching (The Voyage)
+            let moveInterval = setInterval(() => {
+                posZ += 0.5; // Speed of the voyage
+                island.setAttribute('position', `0 -1 ${posZ}`);
+
+                // Arrival Logic
+                if (posZ >= -15) {
+                    clearInterval(moveInterval);
+                    arrival();
+                }
+            }, 50);
+        }
+
+        function arrival() {
+            // Change atmosphere to Tropical Forest for the island arrival
+            document.getElementById('main-env').setAttribute('environment', 'preset: forest; lighting: morning');
+            
+            const arrivalText = "Land Ho. The crew arrives at Guanahani. They encounter the Lucayan people, beginning an exchange of culture and resources that would reshape the world.";
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(arrivalText));
+        }
+    </script>
 </body>
 </html>
