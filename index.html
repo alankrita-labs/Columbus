@@ -1,94 +1,97 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Columbus Simulation: The Landing</title>
+    <title>The 1492 Encounter</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Georgia', serif; }
-        #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #1a1a1a; z-index: 100;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        #map-box {
-            border: 6px solid #d4af37; background: #fdf5e6; padding: 20px;
-            text-align: center; box-shadow: 0 0 30px #000;
-        }
-        button {
-            background: #8b0000; color: #ffd700; padding: 12px 35px;
-            font-size: 20px; border: 2px solid #ffd700; cursor: pointer;
-        }
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100; display: flex; align-items: center; justify-content: center; }
+        #map-ui { background: #fdf5e6; padding: 30px; border: 8px double #d4af37; text-align: center; }
+        button { background: #b71c1c; color: #ffd700; padding: 15px 40px; font-size: 24px; border: 2px solid #ffd700; cursor: pointer; font-family: Georgia; }
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
     <div id="overlay">
-        <div id="map-box">
-            <h2 style="color: #5d4037;">VOYAGE DATA</h2>
-            <img src="map.png" style="width: 400px; border: 1px solid #333; margin-bottom: 15px;">
+        <div id="map-ui">
+            <h1 style="font-family: Georgia; color: #5d4037;">THE LOGICAL VOYAGE</h1>
+            <img src="map.jpg" style="width: 450px; margin-bottom: 20px;">
             <br>
-            <button onclick="startSim()">SET OUT</button>
+            <button onclick="startVoyage()">SET OUT</button>
         </div>
     </div>
 
     <a-scene>
-    <a-assets>
-        <a-asset-item id="ship-model" src="ship.glb"></a-asset-item>
-    </a-assets>
+        <a-assets>
+            <a-asset-item id="ship-model" src="ship.glb"></a-asset-item>
+            <a-asset-item id="columbus-model" src="columbus.glb"></a-asset-item>
+            <a-asset-item id="native-model" src="lucayan.glb"></a-asset-item>
+            <a-asset-item id="island-model" src="island.glb"></a-asset-item>
+        </a-assets>
 
-    <a-sky color="#87CEEB"></a-sky>
-    <a-plane position="0 0 0" rotation="-90 0 0" width="2000" height="2000" color="#1a5276"></a-plane>
-    <a-light type="ambient" intensity="1.5"></a-light>
-    <a-light type="directional" position="1 10 1" intensity="1"></a-light>
+        <a-sky color="#87CEEB"></a-sky>
+        <a-plane position="0 -0.1 0" rotation="-90 0 0" width="2000" height="2000" color="#006994"></a-plane>
+        <a-light type="ambient" intensity="1.2"></a-light>
+        <a-light type="directional" position="5 10 5" intensity="1.2" color="#ffd700"></a-light>
 
-    <a-entity id="ship-wrapper" position="0 0 0">
-        <a-entity id="actual-ship" gltf-model="#ship-model" position="0 0 -5" scale="0.1 0.1 0.1">
-            <a-box color="yellow" wireframe="true" scale="5 2 10" opacity="0.5"></a-box>
+        <a-entity id="scene1-camera" camera look-controls position="20 5 0" rotation="0 90 0" active="true"></a-entity>
+
+        <a-entity id="ship-container" position="-50 0 -20">
+            <a-entity gltf-model="#ship-model" scale="0.1 0.1 0.1" rotation="0 90 0"></a-entity>
         </a-entity>
-        
-        <a-entity id="camera-rig" camera look-controls position="0 1.6 0"></a-entity>
-    </a-entity>
 
-    <a-entity id="island-goal" position="0 -1 -150">
-        <a-circle radius="50" color="#eedc82" rotation="-90 0 0"></a-circle>
-        
-        <a-entity position="0 0 -10">
-            <a-cylinder position="-3 1 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
-            <a-cylinder position="0 1 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
-            <a-cylinder position="3 1 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
-            <a-text value="Lucayan People" align="center" position="0 3 0" color="#000" width="10"></a-text>
+        <a-entity id="island-scene" position="0 -100 0" visible="false">
+            <a-entity gltf-model="#island-model" scale="5 5 5"></a-entity>
+            
+            <a-entity gltf-model="#columbus-model" position="0 1.5 5" scale="1 1 1" rotation="0 180 0"></a-entity>
+            
+            <a-entity gltf-model="#native-model" position="-3 1.5 0" scale="1 1 1"></a-entity>
+            <a-entity gltf-model="#native-model" position="3 1.5 0" scale="1 1 1"></a-entity>
+            
+            <a-entity id="scene2-camera" camera position="0 2 10" rotation="0 0 0" active="false"></a-entity>
         </a-entity>
-    </a-entity>
-</a-scene>
+    </a-scene>
 
     <script>
-        function startSim() {
-    document.getElementById('overlay').classList.add('hidden');
+        const synth = window.speechSynthesis;
 
-    // Informational Narration
-    const msg = "The logic of the voyage: sailing west to reach the east. After 33 days, the crew approaches Guanahani.";
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance(msg));
+        function startVoyage() {
+            document.getElementById('overlay').classList.add('hidden');
+            
+            // NARRATION SCRIPT 1
+            speak("August 1492. Guided by the logic of a spherical earth, Christopher Columbus leads three ships into the unknown. They sail for weeks, testing the resolve of a crew fearing the edge of the world. But for Columbus, the fine print of geography dictated that land must lie ahead.");
 
-    let shipWrapper = document.getElementById('ship-wrapper');
-    let currentZ = 0;
-
-    // Movement Logic
-    let voyage = setInterval(() => {
-        currentZ -= 0.5; // Move FORWARD into the scene
-        shipWrapper.setAttribute('position', `0 0 ${currentZ}`);
-
-        // Reality Check: Are we at the island?
-        if (currentZ <= -135) {
-            clearInterval(voyage);
-            arrival();
+            // Animation: Side Profile Move
+            let ship = document.getElementById('ship-container');
+            let shipPos = -50;
+            let voyageInterval = setInterval(() => {
+                shipPos += 0.2;
+                ship.setAttribute('position', `${shipPos} 0 -20`);
+                
+                if (shipPos >= 10) {
+                    clearInterval(voyageInterval);
+                    transitionToIsland();
+                }
+            }, 50);
         }
-    }, 50);
-}
 
-function arrival() {
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance("Arrival. October 12, 1492. Meeting the Lucayan people."));
-}
+        function transitionToIsland() {
+            // Switch Cameras
+            document.getElementById('scene1-camera').setAttribute('active', false);
+            document.getElementById('island-scene').setAttribute('visible', true);
+            document.getElementById('island-scene').setAttribute('position', '0 0 -50');
+            document.getElementById('scene2-camera').setAttribute('active', true);
+
+            // NARRATION SCRIPT 2
+            speak("October 12th. The horizon reveals Guanahani. On these shores, the Old World meets the New. Columbus encounters the Lucayan people—a culture of peace and intricate social patterns. This meeting, recorded in the logbooks of history, would change the trajectory of every civilization to follow.");
+        }
+
+        function speak(text) {
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.pitch = 0.85;
+            utter.rate = 0.9;
+            synth.speak(utter);
+        }
     </script>
 </body>
 </html>
