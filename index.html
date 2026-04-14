@@ -33,33 +33,37 @@
     </div>
 
     <a-scene>
-        <a-assets>
-            <a-asset-item id="ship-model" src="ship.glb"></a-asset-item>
-        </a-assets>
+    <a-assets>
+        <a-asset-item id="ship-model" src="ship.glb"></a-asset-item>
+    </a-assets>
 
-        <a-sky color="#87CEEB"></a-sky> <a-plane position="0 0 0" rotation="-90 0 0" width="1000" height="1000" color="#006994"></a-plane> <a-light type="ambient" color="#ffffff" intensity="0.7"></a-light>
-        <a-light type="directional" color="#ffd700" position="-1 2 1" intensity="1"></a-light>
+    <a-sky color="#87CEEB"></a-sky> 
+    <a-plane position="0 0 0" rotation="-90 0 0" width="2000" height="2000" color="#1a5276"></a-plane>
 
-        <a-entity id="player-rig">
-            <a-entity gltf-model="#ship-model" position="0 0.5 -5" scale="1 1 1"></a-entity>
-            <a-entity camera look-controls position="0 1.6 0"></a-entity>
+    <a-light type="ambient" color="#ffffff" intensity="1.5"></a-light>
+    <a-light type="directional" color="#ffffff" position="5 10 5" intensity="1"></a-light>
+
+    <a-entity id="player-ship-wrapper" position="0 0 0">
+        <a-entity id="ship-entity" gltf-model="#ship-model" position="0 0.5 -5" scale="0.05 0.05 0.05">
+            <a-box opacity="0.1" color="red" wireframe="true"></a-box>
+        </a-entity>
+        <a-entity camera look-controls position="0 1.6 0"></a-entity>
+    </a-entity>
+
+    <a-entity id="island-group" position="0 -0.5 -150">
+        <a-circle radius="50" color="#eedc82" rotation="-90 0 0"></a-circle>
+        
+        <a-entity position="0 0 -10">
+            <a-cylinder position="-3 1.2 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
+            <a-cylinder position="0 1.2 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
+            <a-cylinder position="3 1.2 0" radius="0.4" height="2" color="#ffd700"></a-cylinder>
+            <a-text value="Lucayan People" align="center" position="0 3 0" color="#5d4037" width="10"></a-text>
         </a-entity>
 
-        <a-entity id="destination" position="0 0 -150">
-            <a-circle radius="40" color="#f2e3bc" rotation="-90 0 0"></a-circle>
-            
-            <a-entity position="0 0 -5">
-                <a-cylinder position="-2 1 0" radius="0.25" height="1.8" color="#CD7F32"></a-cylinder>
-                <a-cylinder position="0 1 -1" radius="0.25" height="1.8" color="#CD7F32"></a-cylinder>
-                <a-cylinder position="2 1 0" radius="0.25" height="1.8" color="#CD7F32"></a-cylinder>
-                <a-text value="Lucayan People" align="center" position="0 2.5 0" color="#000" width="4"></a-text>
-            </a-entity>
-
-            <a-cylinder position="-10 2 -10" radius="0.2" height="4" color="#5d4037"></a-cylinder>
-            <a-sphere position="-10 4 -10" radius="1.5" color="#228b22"></a-sphere>
-        </a-entity>
-
-    </a-scene>
+        <a-cylinder position="-15 2 -15" radius="0.3" height="5" color="#5d4037"></a-cylinder>
+        <a-sphere position="-15 5 -15" radius="2.5" color="#228b22"></a-sphere>
+    </a-entity>
+</a-scene>
 
     <script>
         function startSim() {
