@@ -1,111 +1,61 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <title>Columbus VR: The Logical Voyage</title>
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://unpkg.com/aframe-environment-component@1.3.1/dist/aframe-environment-component.min.js"></script>
+    <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
   </head>
   <body>
-    <a-scene id="voyage-scene">
+    <a-scene cursor="rayOrigin: mouse">
+      
       <a-assets>
-        <a-asset-item id="caravel" src="https://cdn.aframe.io/test-models/models/glTF-2.0/virtualcity/VC.gltf"></a-asset-item>
-        <a-asset-item id="columbus-model" src="models/columbus.glb"></a-asset-item>
+        <img id="wood" src="https://cdn.pixabay.com/photo/2016/11/21/17/41/wood-1846738_1280.jpg">
+        <audio id="ocean-sound" src="https://www.soundjay.com/nature/ocean-wave-1.mp3" preload="auto"></audio>
       </a-assets>
 
-      <a-camera position="0 2 0">
-        <a-plane id="hud-map" position="-0.8 0.5 -1.2" width="0.6" height="0.4" color="#f4e4bc" opacity="0.9">
-          <a-text value="SPAIN" position="-0.25 0.15 0.01" scale="0.12 0.12" color="black"></a-text>
-          <a-text value="AMERICA" position="0.1 -0.15 0.01" scale="0.12 0.12" color="black"></a-text>
-          <a-sphere id="map-dot" radius="0.015" color="red" position="-0.25 0 0.02"></a-sphere>
-        </a-plane>
+      <a-entity environment="preset: ocean; skyType: gradient; skyColor: #ff8c00; horizonColor: #4682b4; lighting: point; lightPosition: 0 5 0"></a-entity>
+      <a-sound src="#ocean-sound" autoplay="true" loop="true" position="0 2 5"></a-sound>
 
-        <a-circle id="compass" position="0.8 0.5 -1.2" radius="0.15" color="#333">
-            <a-text id="heading-text" value="N" align="center" position="0 0 0.01" width="2"></a-text>
-            <a-entity id="needle" geometry="primitive: plane; width: 0.02; height: 0.2" material="color: red" position="0 0 0.02"></a-entity>
-        </a-circle>
+      <a-entity id="ship-deck" position="0 0.2 -5">
+        <a-box width="6" depth="12" height="0.5" src="#wood" repeat="2 4"></a-box>
+        
+        <a-cylinder id="compass" position="0 1 -2" radius="0.3" height="0.1" color="#FFD700" 
+                    animation__click="property: rotation; to: 0 360 0; dur: 1000; startEvents: click">
+            <a-text value="LOGIC CHECK" align="center" position="0 0.1 0" rotation="-90 0 0" color="#000" width="2"></a-text>
+        </a-cylinder>
 
-        <a-entity id="info-panel" position="0 -0.6 -1.5">
-          <a-plane width="2.5" height="0.4" color="black" opacity="0.6"></a-plane>
-          <a-text id="instructions" value="AUGUST 1492: SETTING SAIL FROM PALOS.\nSTEER WEST USING ARROW KEYS!" 
-                  align="center" width="3.5" color="yellow"></a-text>
-        </a-entity>
-      </a-camera>
-
-      <a-entity environment="preset: ocean; dressingAmount: 0"></a-entity>
-      
-      <a-entity id="ship" position="0 0 0">
-        <a-entity gltf-model="#caravel" scale="0.5 0.5 0.5" rotation="0 180 0"></a-entity>
-        <a-entity gltf-model="#columbus-model" position="0 1.5 -2" scale="1 1 1"></a-entity>
+        <a-box id="logbook" position="1.5 1 -1" width="0.5" depth="0.7" height="0.1" color="#f5f5dc">
+            <a-text id="log-text" value="Oct 11: Logic suggests land." align="center" position="0 0.1 0" rotation="-90 0 0" color="#333" width="1.5"></a-text>
+        </a-box>
       </a-entity>
 
-      <a-entity id="bahamas" position="0 0 -1000" visible="false">
-        <a-circle color="#c2b280" rotation="-90 0 0" radius="50"></a-circle>
-        <a-entity id="taino-people" position="0 1 0">
-           <a-cylinder position="5 0 0" radius="0.4" color="brown"></a-cylinder>
-           <a-cylinder position="-5 0 2" radius="0.4" color="brown"></a-cylinder>
-        </a-entity>
+      <a-entity camera look-controls position="0 1.6 0">
+        <a-cursor color="#FF0000"></a-cursor>
       </a-entity>
 
     </a-scene>
 
     <script>
-      const ship = document.querySelector('#ship');
-      const mapDot = document.querySelector('#map-dot');
-      const needle = document.querySelector('#needle');
-      const instr = document.querySelector('#instructions');
-      const bahamas = document.querySelector('#bahamas');
-      
-      let landed = false;
-      let distance = 0;
+      // SCRIPTING THE "GAME" LOGIC
+      const compass = document.querySelector('#compass');
+      const logText = document.querySelector('#log-text');
+      let clickCount = 0;
 
-      // Steering Logic: Arrow keys rotate the ship
-      window.addEventListener('keydown', (e) => {
-        if(landed) return;
-        let rot = ship.getAttribute('rotation');
-        if(e.key === "ArrowLeft") rot.y += 5;
-        if(e.key === "ArrowRight") rot.y -= 5;
-        ship.setAttribute('rotation', rot);
-        // Update Compass Needle
-        needle.setAttribute('rotation', {z: -rot.y});
-      });
-
-      function update() {
-        if(landed) return;
-
-        let pos = ship.getAttribute('position');
-        let angle = ship.getAttribute('rotation').y * (Math.PI / 180);
-
-        // Movement Logic: Always sailing forward
-        pos.x -= Math.sin(angle) * 0.25;
-        pos.z -= Math.cos(angle) * 0.25;
-        ship.setAttribute('position', pos);
-
-        // Map Logic: Move dot based on Z progress (0 to -1000)
-        let progress = (pos.z / -1000) * 0.5 - 0.25;
-        mapDot.setAttribute('position', {x: progress, y: 0, z: 0.02});
-
-        // VOYAGE PHASES
-        if (pos.z < -200 && pos.z > -205) {
-          instr.setAttribute('value', "SEPTEMBER: YOU ARE IN THE SARGASSO SEA.\nWATCH FOR SEAWEED! KEEP STEERING WEST.");
-        }
+      // Event Listener for the Compass (The Navigation Puzzle)
+      compass.addEventListener('click', () => {
+        clickCount++;
         
-        if (pos.z < -800) {
-          bahamas.setAttribute('visible', 'true');
-          instr.setAttribute('value', "LAND AHOY! SHORELINE SPOTTED!\nSTEER TOWARD THE ISLAND.");
+        if(clickCount === 1) {
+          logText.setAttribute('value', "Calculated: 700 leagues.");
+        } else if (clickCount === 2) {
+          logText.setAttribute('value', "Warning: Compass variance!");
+          // Visual feedback: Shake the deck (The Reality Check)
+          document.querySelector('#ship-deck').emit('shake'); 
+        } else {
+          logText.setAttribute('value', "LAND HO! (Oct 12)");
+          document.body.style.backgroundColor = "#fff"; // Simulation complete
         }
-
-        // LANDING LOGIC
-        let distToIsland = Math.sqrt(Math.pow(pos.x - 0, 2) + Math.pow(pos.z + 1000, 2));
-        if (distToIsland < 40) {
-          landed = true;
-          instr.setAttribute('value', "SUCCESS! OCTOBER 12: LANDING AT SAN SALVADOR.\nCOLUMBUS GREETS THE TAINO PEOPLE.");
-          instr.setAttribute('color', "lime");
-          // Disembarking animation
-          document.querySelector('a-camera').setAttribute('animation', "property: position; to: 0 1.6 -995; dur: 4000");
-        }
-
-        requestAnimationFrame(update);
-      }
-      update();
+      });
     </script>
   </body>
 </html>
