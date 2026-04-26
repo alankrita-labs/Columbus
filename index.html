@@ -47,7 +47,7 @@
 
     <!-- Scene 2 & 3 UI Overlay -->
     <div id="scene-ui" class="layer">
-        <div id="ui-text" class="narration">Sailing the deep Atlantic... Land slowly approaches on the horizon.</div>
+        <div id="ui-text" class="narration">Sailing the deep Atlantic... The thick mist slowly clears as land approaches.</div>
         <button id="btn-land" class="btn">Make Landfall (Meet the Lucayans)</button>
     </div>
 
@@ -69,11 +69,13 @@
         import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
         import { Water } from 'three/addons/objects/Water.js';
 
-        let scene, camera, renderer, water, particles, seagulls;
+        let scene, camera, renderer, water, sprayParticles, seagulls;
         let mainShip, companionShip;
         let islandGroup, islandModel, columbusModel, lucayanModel, flagMesh, flagPole; 
         
         const clock = new THREE.Clock();
+        let lastTime = 0;
+        let seagullMixers = [];
         
         // State management
         let currentScene = 1; 
@@ -92,7 +94,8 @@
 
             // 1. Scene & Camera Setup
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x1a2b3c, 0.0004);
+            // Start with thick, terrifying mist for the deep ocean
+            scene.fog = new THREE.FogExp2(0x8a5a44, 0.002); 
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
             camera.position.copy(cameraTarget);
@@ -115,12 +118,14 @@
             sunLight.position.set(200, 150, 100);
             scene.add(sunLight);
 
-            // --- SPECIAL EFFECTS 1: Magical Ocean Particles (Subtle & Small) ---
+            // --- SPECIAL EFFECTS: Sea Spray / Mist Particles ---
             const particleGeo = new THREE.BufferGeometry();
-            const particleCount = 300; // Reduced for subtlety
+            const particleCount = 400; 
             const posArray = new Float32Array(particleCount * 3);
             for(let i = 0; i < particleCount * 3; i++) {
-                posArray[i] = (Math.random() - 0.5) * 400; 
+                posArray[i * 3] = (Math.random() - 0.5) * 200; // X spread
+                posArray[i * 3 + 1] = Math.random() * 15;      // Low Y (near water)
+                posArray[i * 3 + 2] = (Math.random() - 0.5) * 300; // Z spread
             }
             particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
             
@@ -128,44 +133,23 @@
             particleCanvas.width = 32; particleCanvas.height = 32;
             const pCtx = particleCanvas.getContext('2d');
             const pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
-            pGrad.addColorStop(0, 'rgba(255,255,255,1)');
-            pGrad.addColorStop(0.2, 'rgba(255,204,68,1)'); 
-            pGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            pGrad.addColorStop(0, 'rgba(255, 255, 255, 0.8)'); // White sea spray center
+            pGrad.addColorStop(0.4, 'rgba(200, 230, 255, 0.3)'); // Light blue mist edge
+            pGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
             pCtx.fillStyle = pGrad;
             pCtx.fillRect(0,0,32,32);
             const particleTexture = new THREE.CanvasTexture(particleCanvas);
 
             const particleMat = new THREE.PointsMaterial({
-                size: 1.2, // Much smaller
+                size: 4.0, 
                 map: particleTexture,
                 transparent: true,
-                opacity: 0.6,
-                blending: THREE.AdditiveBlending,
+                opacity: 0.5,
+                blending: THREE.NormalBlending,
                 depthWrite: false 
             });
-            particles = new THREE.Points(particleGeo, particleMat);
-            scene.add(particles);
-
-            // --- SPECIAL EFFECTS 2: Circling Seagulls ---
-            seagulls = new THREE.Group();
-            const birdGeo = new THREE.BufferGeometry();
-            // Simple V shape for birds
-            const birdVerts = new Float32Array([ -0.5, 0.5, 0,  0, 0, 0,  0.5, 0.5, 0 ]);
-            birdGeo.setAttribute('position', new THREE.BufferAttribute(birdVerts, 3));
-            const birdMat = new THREE.LineBasicMaterial({ color: 0xffffff });
-            
-            for(let i = 0; i < 10; i++) {
-                const bird = new THREE.Line(birdGeo, birdMat);
-                bird.position.set((Math.random() - 0.5) * 40, 15 + Math.random() * 15, (Math.random() - 0.5) * 40);
-                bird.userData = {
-                    angle: Math.random() * Math.PI * 2,
-                    radius: 10 + Math.random() * 30,
-                    speed: 0.5 + Math.random() * 0.8,
-                    yOffset: bird.position.y
-                };
-                seagulls.add(bird);
-            }
-            scene.add(seagulls);
+            sprayParticles = new THREE.Points(particleGeo, particleMat);
+            scene.add(sprayParticles);
 
             // --- MASTER GROUP FOR ISLAND & CHARACTERS ---
             islandGroup = new THREE.Group();
@@ -220,14 +204,44 @@
                 mainShip.position.set(0, -2, 0); 
                 scene.add(mainShip);
 
-                // Companion ship - Moved firmly into the foreground left
+                // Companion ship - Placed firmly into the foreground left
                 companionShip = mainShip.clone();
                 companionShip.position.set(-15, -2, 5); 
                 companionShip.rotation.y = 0.05; 
                 scene.add(companionShip);
             });
 
-            // B. Load Island
+            // B. Load Seagull GLB
+            loader.load('seagull.glb', function (gltf) {
+                seagulls = new THREE.Group();
+                // Create a flock
+                for(let i = 0; i < 8; i++) {
+                    let bird = gltf.scene.clone();
+                    bird.scale.set(2, 2, 2); // Scale up or down as needed
+                    bird.position.set((Math.random() - 0.5) * 50, 15 + Math.random() * 20, (Math.random() - 0.5) * 50);
+                    
+                    // Setup animation if the GLB has a flying/flapping clip
+                    if(gltf.animations && gltf.animations.length > 0) {
+                        let mixer = new THREE.AnimationMixer(bird);
+                        let action = mixer.clipAction(gltf.animations[0]);
+                        action.play();
+                        // Randomize start time so they flap independently
+                        mixer.setTime(Math.random() * 5);
+                        seagullMixers.push(mixer);
+                    }
+
+                    bird.userData = {
+                        angle: Math.random() * Math.PI * 2,
+                        radius: 15 + Math.random() * 30,
+                        speed: 0.5 + Math.random() * 0.8,
+                        yOffset: bird.position.y
+                    };
+                    seagulls.add(bird);
+                }
+                scene.add(seagulls);
+            });
+
+            // C. Load Island
             loader.load('island.glb', function (gltf) {
                 islandModel = gltf.scene;
                 islandModel.scale.set(50, 50, 50); 
@@ -235,28 +249,26 @@
                 islandGroup.add(islandModel);
             });
 
-            // C. Load Columbus
+            // D. Load Columbus
             loader.load('columbus.glb', function (gltf) {
                 columbusModel = gltf.scene;
                 columbusModel.scale.set(5, 5, 5); 
-                // Lowered down to 12 so he is standing on the land
                 columbusModel.position.set(-15, 12, 80); 
                 columbusModel.visible = false; // Hidden until Scene 3
                 islandGroup.add(columbusModel);
             });
 
-            // D. Load Lucayan
+            // E. Load Lucayan
             loader.load('lucayan.glb', function (gltf) {
                 lucayanModel = gltf.scene;
                 lucayanModel.scale.set(5, 5, 5); 
-                // Lowered down to 12
                 lucayanModel.position.set(15, 12, 70); 
                 lucayanModel.lookAt(-15, 12, 80); // Look at Columbus
                 lucayanModel.visible = false; // Hidden until Scene 3
                 islandGroup.add(lucayanModel);
             });
 
-            // E. Create the Spanish Flag & Pole
+            // F. Create the Spanish Flag & Pole
             createSpanishFlag();
 
             window.addEventListener('resize', onWindowResize);
@@ -291,7 +303,6 @@
             const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 15);
             const poleMat = new THREE.MeshStandardMaterial({color: 0x8b5a2b});
             flagPole = new THREE.Mesh(poleGeo, poleMat);
-            // Lowered to match Columbus
             flagPole.position.set(-20, 19, 80); 
             flagPole.visible = false; // Hidden until Scene 3
             islandGroup.add(flagPole);
@@ -322,17 +333,22 @@
         function animate() {
             requestAnimationFrame(animate);
             const time = clock.getElapsedTime();
+            const delta = time - lastTime;
+            lastTime = time;
 
             if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
 
-            // Animate Magic Particles
-            if (particles) {
-                particles.rotation.y = time * 0.05;
-                particles.position.z += 0.2;
-                if (particles.position.z > 100) particles.position.z = -200; 
+            // Animate Sea Spray / Mist Particles
+            if (sprayParticles) {
+                // Move spray rapidly backwards to simulate forward ship movement
+                sprayParticles.position.z += shipSpeed * 2.5;
+                if (sprayParticles.position.z > 200) sprayParticles.position.z = -200; 
             }
 
-            // Animate Seagulls
+            // Animate Seagulls (Flapping and Circling)
+            if (seagullMixers.length > 0) {
+                seagullMixers.forEach(mixer => mixer.update(delta));
+            }
             if (seagulls && currentScene === 2) {
                 seagulls.visible = true;
                 seagulls.children.forEach(bird => {
@@ -340,13 +356,11 @@
                     bird.position.x = Math.cos(bird.userData.angle) * bird.userData.radius;
                     bird.position.z = Math.sin(bird.userData.angle) * bird.userData.radius;
                     bird.position.y = bird.userData.yOffset + Math.sin(time * 2 + bird.userData.angle) * 2;
-                    bird.rotation.y = -bird.userData.angle; 
                     
-                    // Dynamic wing flapping
-                    const positions = bird.geometry.attributes.position.array;
-                    positions[1] = 0.5 + Math.sin(time * 10 * bird.userData.speed) * 0.5; // Left wing
-                    positions[7] = 0.5 + Math.sin(time * 10 * bird.userData.speed) * 0.5; // Right wing
-                    bird.geometry.attributes.position.needsUpdate = true;
+                    // Angle bird to face flight path
+                    const tangentX = -Math.sin(bird.userData.angle);
+                    const tangentZ = Math.cos(bird.userData.angle);
+                    bird.rotation.y = Math.atan2(tangentX, tangentZ); 
                 });
             } else if (seagulls) {
                 seagulls.visible = false; // Hide birds during landing
@@ -363,6 +377,14 @@
                 flagMesh.geometry.attributes.position.needsUpdate = true;
             }
 
+            // --- DYNAMIC MIST (Clears up as Island approaches) ---
+            if (islandGroup) {
+                // distanceRatio goes from 1.0 (far away) to 0.0 (arrived)
+                let distanceRatio = Math.max(0, Math.abs(islandGroup.position.z) / 3000);
+                // Fog transitions from dense (0.002) down to light/clear (0.0003)
+                scene.fog.density = 0.0003 + (0.0017 * distanceRatio);
+            }
+
             // --- SCENE 2 LOGIC (Sailing) ---
             if (currentScene === 2) {
                 // CAMERA BOBBING: Camera sways and bobs with the exact rhythm of the ship!
@@ -377,10 +399,10 @@
 
             // --- SCENE 3 LOGIC (Landing & Cinematic Camera) ---
             if (currentScene === 3) {
-                // Camera glides onto the beach, matched perfectly to the new lowered Y=12 height
-                cameraTarget.set(0, 18, 20); 
-                // Focuses firmly on the characters and the flag
-                lookAtTarget.set(-2, 14, 80); 
+                // Camera glides onto the beach, pulling back to frame everything perfectly
+                cameraTarget.set(0, 25, 10); 
+                // Focuses centrally between Columbus, the Lucayans, and the flag
+                lookAtTarget.set(0, 16, 75); 
 
                 if (mainShip) {
                     mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2;
