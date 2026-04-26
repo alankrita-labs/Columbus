@@ -5,15 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photorealistic Voyage Simulation</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; }
-        #loading { position: absolute; inset: 0; background: #111; color: #d4af37; display: flex; justify-content: center; align-items: center; font-family: serif; font-size: 24px; z-index: 100; transition: opacity 1s; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Georgia', serif; color: #fff; }
+        
+        /* Fullscreen containers */
+        .layer { position: absolute; inset: 0; width: 100%; height: 100%; }
+        
+        /* Loading Screen */
+        #loading { background: #111; color: #d4af37; display: flex; justify-content: center; align-items: center; font-size: 24px; z-index: 100; transition: opacity 1s; }
+        
+        /* Scene 1: Map overlay */
+        #scene-map { 
+            background: url('map.png') center/cover no-repeat, #1a1510; 
+            z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; pb-20; transition: opacity 1.5s; 
+        }
+        
+        /* Scene 2 & 3 UI overlays */
+        #scene-ui { z-index: 40; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 50px; opacity: 0; transition: opacity 1s; }
+        
+        /* Buttons and Text */
+        .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 40px; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 50px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); }
+        .btn:hover { background: linear-gradient(to bottom, #ffdf73, #d4af37); transform: translateY(-2px); }
+        .narration { background: rgba(0,0,0,0.7); padding: 20px 40px; border: 1px solid #d4af37; border-radius: 5px; margin-bottom: 20px; text-align: center; max-width: 800px; font-size: 20px; }
+        
+        /* 3D Canvas */
+        #three-container { z-index: 10; }
     </style>
 </head>
 <body>
-    <div id="loading">Loading High-Fidelity Assets (0%)...</div>
-    <div id="three-container"></div>
+    <div id="loading" class="layer">Loading High-Fidelity Assets (0%)...</div>
+    
+    <!-- Scene 1: The 2D Map -->
+    <div id="scene-map" class="layer">
+        <div class="narration">August 1492: The voyage begins. Crossing the vast unknown.</div>
+        <button id="btn-sail" class="btn">Set Sail (Enter 3D)</button>
+    </div>
 
-    <!-- Import Three.js and necessary loaders as ES Modules -->
+    <!-- Scene 2 & 3 UI Overlay -->
+    <div id="scene-ui" class="layer">
+        <div id="ui-text" class="narration">Sailing across the Atlantic... The island approaches.</div>
+        <button id="btn-land" class="btn">Make Landfall (Meet the Lucayans)</button>
+    </div>
+
+    <!-- 3D Environment -->
+    <div id="three-container" class="layer"></div>
+
     <script type="importmap">
         {
             "imports": {
@@ -29,11 +64,14 @@
         import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
         import { Water } from 'three/addons/objects/Water.js';
 
-        let scene, camera, renderer, water, shipModel;
-        // Variables for your new characters
-        let columbusModel, lucayanModel; 
+        let scene, camera, renderer, water;
+        let shipModel, islandModel, columbusModel, lucayanModel; 
         
         const clock = new THREE.Clock();
+        
+        // State management
+        let currentScene = 1; 
+        let shipSpeed = 0.5;
 
         init();
         animate();
@@ -44,46 +82,44 @@
             // 1. Scene & Camera Setup
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
-            camera.position.set(30, 30, 100);
+            
+            // Initial camera position (behind the ship)
+            camera.position.set(0, 30, 80);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.toneMapping = THREE.ACESFilmicToneMapping; // Cinematic lighting
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; 
             renderer.toneMappingExposure = 1.0;
             container.appendChild(renderer.domElement);
 
             // --- LOADING MANAGER ---
-            // This ensures the loading screen waits for ALL models, textures, and HDRI to finish loading
             const manager = new THREE.LoadingManager();
             manager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
-                document.getElementById('loading').innerText = `Loading High-Fidelity Assets (${Math.round((itemsLoaded / itemsTotal) * 100)}%)...`;
+                document.getElementById('loading').innerText = `Loading Assets (${Math.round((itemsLoaded / itemsTotal) * 100)}%)...`;
             };
-            manager.onLoad = function ( ) {
+            manager.onLoad = function () {
                 document.getElementById('loading').style.opacity = '0';
-                setTimeout(() => {
-                    const el = document.getElementById('loading');
-                    if (el) el.remove();
-                }, 1000);
+                setTimeout(() => document.getElementById('loading').remove(), 1000);
             };
             manager.onError = function ( url ) {
                 console.error('Error loading:', url);
-                document.getElementById('loading').innerText = "Error loading an asset. Check console & paths.";
+                document.getElementById('loading').innerText = "Asset missing. Ensure all .glb, .png, .hdr, and .jpg files are in the same folder.";
             };
 
-            // 2. Load HDRI for Photorealistic Lighting & Skybox
-            new RGBELoader(manager).setPath('textures/').load('sunset_sky.hdr', function (texture) {
+            // 2. Load HDRI (Loaded directly from root directory)
+            new RGBELoader(manager).load('sunset_sky.hdr', function (texture) {
                 texture.mapping = THREE.EquirectangularReflectionMapping;
                 scene.background = texture;
                 scene.environment = texture;
             });
 
-            // 3. Realistic Water Shader
+            // 3. Realistic Water Shader (Loaded directly from root directory)
             const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
             water = new Water(waterGeometry, {
                 textureWidth: 512,
                 textureHeight: 512,
-                waterNormals: new THREE.TextureLoader(manager).load('textures/waternormals.jpg', function (texture) {
+                waterNormals: new THREE.TextureLoader(manager).load('waternormals.jpg', function (texture) {
                     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
                 }),
                 sunDirection: new THREE.Vector3(1, 1, 1).normalize(),
@@ -94,46 +130,63 @@
             water.rotation.x = -Math.PI / 2;
             scene.add(water);
 
-            // 4. Load External High-Fidelity 3D Models
+            // 4. Load Models (Directly from root directory as requested)
             const loader = new GLTFLoader(manager);
             
-            // A. Load Caravel
-            loader.load('models/caravel.glb', function (gltf) {
+            // A. Load Ship
+            loader.load('ship.glb', function (gltf) {
                 shipModel = gltf.scene;
-                shipModel.scale.set(10, 10, 10);
-                shipModel.position.y = -2; 
+                shipModel.scale.set(5, 5, 5); // Tweak scale based on your model
+                shipModel.position.set(0, -2, 0); 
                 scene.add(shipModel);
             });
 
-            // B. Load Columbus
-            loader.load('models/columbus.glb', function (gltf) {
+            // B. Load Island
+            loader.load('island.glb', function (gltf) {
+                islandModel = gltf.scene;
+                islandModel.scale.set(50, 50, 50); // Islands are big
+                islandModel.position.set(0, -5, -800); // Placed far away initially
+                scene.add(islandModel);
+            });
+
+            // C. Load Columbus
+            loader.load('columbus.glb', function (gltf) {
                 columbusModel = gltf.scene;
-                // Adjust scale according to the original GLB size
-                columbusModel.scale.set(10, 10, 10); 
-                
-                // Position Columbus on the deck of the ship
-                // You will need to tweak these X, Y, Z values to match your specific ship model's deck height
-                columbusModel.position.set(0, 5, 0); 
-                
-                // Tip: If you want Columbus to bob up and down WITH the ship, 
-                // you would do `shipModel.add(columbusModel);` instead of `scene.add(columbusModel);`
-                // (Make sure to do this inside the animate loop or ensure shipModel is loaded first)
+                columbusModel.scale.set(5, 5, 5); 
+                // Position Columbus on the island's shore
+                columbusModel.position.set(-10, 0, -780); 
                 scene.add(columbusModel);
             });
 
-            // C. Load Lucayan
-            loader.load('models/lucayan.glb', function (gltf) {
+            // D. Load Lucayan
+            loader.load('lucayan.glb', function (gltf) {
                 lucayanModel = gltf.scene;
-                // Adjust scale according to the original GLB size
-                lucayanModel.scale.set(10, 10, 10); 
-                
-                // Position the Lucayan somewhere else (e.g., distant shore or approaching boat)
-                lucayanModel.position.set(50, -2, -50); 
-                
+                lucayanModel.scale.set(5, 5, 5); 
+                // Position the Lucayan on the shore facing Columbus
+                lucayanModel.position.set(10, 0, -785); 
+                lucayanModel.lookAt(-10, 0, -780); // Look at Columbus
                 scene.add(lucayanModel);
             });
 
             window.addEventListener('resize', onWindowResize);
+            
+            // --- UI INTERACTIONS ---
+            document.getElementById('btn-sail').addEventListener('click', () => {
+                // Transition from Map (Scene 1) to 3D Ship (Scene 2)
+                document.getElementById('scene-map').style.opacity = '0';
+                setTimeout(() => {
+                    document.getElementById('scene-map').style.display = 'none';
+                    document.getElementById('scene-ui').style.opacity = '1';
+                    currentScene = 2;
+                }, 1500);
+            });
+
+            document.getElementById('btn-land').addEventListener('click', () => {
+                // Transition to Landing (Scene 3)
+                currentScene = 3;
+                document.getElementById('btn-land').style.display = 'none';
+                document.getElementById('ui-text').innerText = "October 12, 1492: Columbus makes landfall and meets the Lucayans.";
+            });
         }
 
         function onWindowResize() {
@@ -151,18 +204,35 @@
                 water.material.uniforms['time'].value += 1.0 / 60.0;
             }
 
-            // Bob the ship gently on the waves
-            if (shipModel) {
-                shipModel.position.y = Math.sin(time * 1.5) * 1.5 - 2;
-                shipModel.rotation.x = Math.sin(time * 1.2) * 0.05;
-                shipModel.rotation.z = Math.sin(time * 0.8) * 0.05;
+            // Scene 2 Logic: Sailing towards the island
+            if (currentScene === 2) {
+                if (shipModel) {
+                    // Ship bobs on the waves
+                    shipModel.position.y = Math.sin(time * 1.5) * 1.5 - 2;
+                    shipModel.rotation.x = Math.sin(time * 1.2) * 0.05;
+                    shipModel.rotation.z = Math.sin(time * 0.8) * 0.05;
+                }
                 
-                // If Columbus is added to the scene (not the ship group), 
-                // you can make him bob identically to the ship here:
-                if (columbusModel) {
-                    columbusModel.position.y = shipModel.position.y + 7; // offset by deck height
-                    columbusModel.rotation.x = shipModel.rotation.x;
-                    columbusModel.rotation.z = shipModel.rotation.z;
+                // Move island (and characters) closer to simulate sailing
+                if (islandModel && islandModel.position.z < -100) {
+                    islandModel.position.z += shipSpeed;
+                    if (columbusModel) columbusModel.position.z += shipSpeed;
+                    if (lucayanModel) lucayanModel.position.z += shipSpeed;
+                }
+            }
+
+            // Scene 3 Logic: The Meeting
+            if (currentScene === 3) {
+                // Move camera off the ship and onto the beach to look at the characters
+                // Lerp (smoothly interpolate) camera position to the island shore
+                camera.position.lerp(new THREE.Vector3(0, 15, -750), 0.02);
+                camera.lookAt(0, 5, -785);
+                
+                // Stop the ship bobbing aggressively since it's "anchored"
+                if (shipModel) {
+                    shipModel.position.y = Math.sin(time * 1.0) * 0.5 - 2;
+                    shipModel.rotation.x = Math.sin(time * 0.5) * 0.02;
+                    shipModel.rotation.z = 0;
                 }
             }
 
