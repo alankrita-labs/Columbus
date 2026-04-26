@@ -131,7 +131,7 @@
             sunLight.position.set(200, 150, 100);
             scene.add(sunLight);
 
-            // --- SPECIAL EFFECTS: Magical Ocean Particles ---
+            // --- SPECIAL EFFECTS: Magical Ocean Particles (Soft & Glowing) ---
             const particleGeo = new THREE.BufferGeometry();
             const particleCount = 1500;
             const posArray = new Float32Array(particleCount * 3);
@@ -139,12 +139,26 @@
                 posArray[i] = (Math.random() - 0.5) * 400; // Spread around the scene
             }
             particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            
+            // Create a soft, circular glowing texture dynamically (No pixelation!)
+            const particleCanvas = document.createElement('canvas');
+            particleCanvas.width = 32; particleCanvas.height = 32;
+            const pCtx = particleCanvas.getContext('2d');
+            const pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            pGrad.addColorStop(0, 'rgba(255,255,255,1)');
+            pGrad.addColorStop(0.2, 'rgba(255,204,68,1)'); // Golden glow
+            pGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            pCtx.fillStyle = pGrad;
+            pCtx.fillRect(0,0,32,32);
+            const particleTexture = new THREE.CanvasTexture(particleCanvas);
+
             const particleMat = new THREE.PointsMaterial({
-                size: 0.8,
-                color: 0xffcc44, // Golden vibrant embers
+                size: 3.0,
+                map: particleTexture,
                 transparent: true,
-                opacity: 0.6,
-                blending: THREE.AdditiveBlending
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false // Prevents black artifact borders
             });
             particles = new THREE.Points(particleGeo, particleMat);
             scene.add(particles);
@@ -207,10 +221,10 @@
                 mainShip.position.set(0, -2, 0); 
                 scene.add(mainShip);
 
-                // Companion ship - Moved MUCH closer and inside the camera view!
+                // Companion ship - Moved to the left and placed firmly in the camera's view
                 companionShip = mainShip.clone();
-                companionShip.position.set(20, -2, -5); 
-                companionShip.rotation.y = -0.05; 
+                companionShip.position.set(-25, -2, -15); 
+                companionShip.rotation.y = 0.05; 
                 scene.add(companionShip);
             });
 
@@ -226,8 +240,8 @@
             loader.load('columbus.glb', function (gltf) {
                 columbusModel = gltf.scene;
                 columbusModel.scale.set(5, 5, 5); 
-                // Raised Y to 8, pushed Z to 30 to get completely on the beach
-                columbusModel.position.set(-15, 8, 30); 
+                // Drastically raised Y to 35 and pushed Z inland to 80 to clear the water mesh completely
+                columbusModel.position.set(-15, 35, 80); 
                 islandGroup.add(columbusModel);
             });
 
@@ -235,9 +249,9 @@
             loader.load('lucayan.glb', function (gltf) {
                 lucayanModel = gltf.scene;
                 lucayanModel.scale.set(5, 5, 5); 
-                // Raised Y to 8, pushed Z to 20
-                lucayanModel.position.set(15, 8, 20); 
-                lucayanModel.lookAt(-15, 8, 30); // Look at Columbus
+                // Drastically raised Y to 35 and pushed Z inland to 70
+                lucayanModel.position.set(15, 35, 70); 
+                lucayanModel.lookAt(-15, 35, 80); // Look at Columbus
                 islandGroup.add(lucayanModel);
             });
 
@@ -271,8 +285,8 @@
             const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 15);
             const poleMat = new THREE.MeshStandardMaterial({color: 0x8b5a2b});
             const pole = new THREE.Mesh(poleGeo, poleMat);
-            // Placed immediately to the left of Columbus (-15, 8, 30 -> -20, 15, 30)
-            pole.position.set(-20, 15, 30); 
+            // Adjusted to match the new high elevation of Columbus
+            pole.position.set(-20, 42, 80); 
             islandGroup.add(pole);
 
             // Waving Flag Canvas Texture (Spanish Burgundy Cross style)
@@ -289,7 +303,8 @@
             const flagGeo = new THREE.PlaneGeometry(8, 5, 10, 10);
             const flagMat = new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide });
             flagMesh = new THREE.Mesh(flagGeo, flagMat);
-            flagMesh.position.set(-16, 20, 30); // Attached to top of pole
+            // Adjusted to attach to the top of the newly elevated pole
+            flagMesh.position.set(-16, 47, 80); 
             islandGroup.add(flagMesh);
         }
 
@@ -326,8 +341,10 @@
 
             // --- SCENE 2 LOGIC (Sailing from Deep Ocean) ---
             if (currentScene === 2) {
-                cameraTarget.set(0, 18, 45);
-                lookAtTarget.set(0, 5, -20);
+                // CAMERA BOBBING: Camera sways and bobs with the exact rhythm of the ship!
+                const bobbingAmount = Math.sin(time * 1.5) * 1.5;
+                cameraTarget.set(0, 18 + bobbingAmount, 45);
+                lookAtTarget.set(0, 5 + bobbingAmount, -20);
 
                 if (islandGroup && islandGroup.position.z < -80) {
                     islandGroup.position.z += shipSpeed;
@@ -336,10 +353,10 @@
 
             // --- SCENE 3 LOGIC (Landing & Cinematic Camera) ---
             if (currentScene === 3) {
-                // Glides onto the beach near Columbus
-                cameraTarget.set(0, 15, -10); 
-                // Focuses on the characters and the flag
-                lookAtTarget.set(-2, 12, -50); 
+                // Camera glides much higher onto the beach to match the elevated character positions
+                cameraTarget.set(0, 40, 20); 
+                // Focuses firmly on the characters and the flag inland
+                lookAtTarget.set(-2, 38, 80); 
 
                 if (mainShip) {
                     mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2;
