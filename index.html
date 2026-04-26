@@ -1,107 +1,133 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Columbus: The 1492 Simulation</title>
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photorealistic Voyage Simulation</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Georgia', serif; }
-        #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 100; display: flex; align-items: center; justify-content: center;
-        }
-        #map-ui {
-            background: #fdf5e6; padding: 25px; border: 5px solid #5d4037; text-align: center;
-        }
-        button {
-            background: #b71c1c; color: #fff; padding: 15px 40px; font-size: 20px; cursor: pointer;
-        }
-        .hidden { display: none !important; }
+        body { margin: 0; overflow: hidden; background: #000; }
+        #loading { position: absolute; inset: 0; background: #111; color: #d4af37; display: flex; justify-content: center; align-items: center; font-family: serif; font-size: 24px; z-index: 100; transition: opacity 1s; }
     </style>
 </head>
 <body>
+    <div id="loading">Loading High-Fidelity Assets (0%)...</div>
+    <div id="three-container"></div>
 
-    <div id="overlay">
-        <div id="map-ui">
-            <h1 style="color: #5d4037;">SCENE I: THE VOYAGE</h1>
-            <img src="map.png" style="width: 350px; margin-bottom: 15px; border: 1px solid #000;">
-            <br>
-            <button onclick="startVoyage()">SET OUT</button>
-        </div>
-    </div>
+    <!-- Import Three.js and necessary loaders as ES Modules -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/"
+            }
+        }
+    </script>
 
-    <a-scene renderer="colorManagement: true;">
-        <a-assets>
-            <a-asset-item id="ship-glb" src="ship.glb"></a-asset-item>
-            <a-asset-item id="columbus-glb" src="columbus.glb"></a-asset-item>
-            <a-asset-item id="native-glb" src="lucayan.glb"></a-asset-item>
-            <a-asset-item id="island-glb" src="island.glb"></a-asset-item>
-        </a-assets>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+        import { Water } from 'three/addons/objects/Water.js';
 
-        <a-sky color="#87CEEB"></a-sky>
-        <a-plane rotation="-90 0 0" width="2000" height="2000" color="#1a5276"></a-plane>
-        <a-light type="ambient" intensity="1.5"></a-light>
-        <a-light type="directional" position="1 10 1" intensity="1" color="#ffd700"></a-light>
+        let scene, camera, renderer, water, shipModel;
+        const clock = new THREE.Clock();
 
-        <a-entity id="scene1">
-            <a-entity id="cam1" camera position="0 5 15" active="true"></a-entity>
-            
-            <a-entity id="ship-voyage-rig" position="-40 0 0">
-                <a-entity gltf-model="#ship-glb" scale="0.5 0.5 0.5" rotation="0 90 0"></a-entity>
-            </a-entity>
-        </a-entity>
+        init();
+        animate();
 
-        <a-entity id="scene2" visible="false" position="0 -1000 0">
-            <a-entity id="cam2" camera position="0 1.6 3" active="false"></a-entity>
-            
-            <a-entity gltf-model="#island-glb" scale="20 20 20" position="0 -0.5 -10"></a-entity>
+        function init() {
+            const container = document.getElementById('three-container');
 
-            <a-circle position="0 0.05 -2" radius="10" color="#f2e3bc" rotation="-90 0 0"></a-circle>
+            // 1. Scene & Camera Setup
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
+            camera.position.set(30, 30, 100);
 
-            <a-entity id="character-anchor" position="0 0 -3">
-                <a-entity position="-1.5 0 0">
-                   <a-entity gltf-model="#columbus-glb" scale="2 2 2" rotation="0 160 0"></a-entity>
-                </a-entity>
-                
-                <a-entity position="1.5 0 0">
-                   <a-entity gltf-model="#native-glb" scale="2 2 2" rotation="0 -160 0"></a-entity>
-                </a-entity>
-            </a-entity>
-        </a-entity>
-    </a-scene>
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; // Cinematic lighting
+            renderer.toneMappingExposure = 1.0;
+            container.appendChild(renderer.domElement);
 
-    <script>
-        function startVoyage() {
-            document.getElementById('overlay').classList.add('hidden');
-            
-            const utter1 = new SpeechSynthesisUtterance("Scene One. The Voyage. August 1492. Columbus sails west across the side-profile of the Atlantic, guided by the logic of the stars.");
-            window.speechSynthesis.speak(utter1);
+            // 2. Load HDRI for Photorealistic Lighting & Skybox
+            // REQUIRED: Download a .hdr file from Polyhaven and place it in a 'textures' folder
+            new RGBELoader().setPath('textures/').load('sunset_sky.hdr', function (texture) {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+                scene.background = texture;
+                scene.environment = texture;
+            });
 
-            let shipRig = document.getElementById('ship-voyage-rig');
-            let xPos = -40;
-            
-            let move = setInterval(() => {
-                xPos += 0.25;
-                shipRig.setAttribute('position', `${xPos} 0 0`);
-                
-                // When ship passes center, prepare for scene 2
-                if (xPos >= 20) {
-                    clearInterval(move);
-                    finishVoyage();
+            // 3. Realistic Water Shader
+            // REQUIRED: Download a water normal map texture
+            const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
+            water = new Water(waterGeometry, {
+                textureWidth: 512,
+                textureHeight: 512,
+                waterNormals: new THREE.TextureLoader().load('textures/waternormals.jpg', function (texture) {
+                    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+                }),
+                sunDirection: new THREE.Vector3(1, 1, 1).normalize(),
+                sunColor: 0xffffff,
+                waterColor: 0x001e0f,
+                distortionScale: 3.7,
+            });
+            water.rotation.x = -Math.PI / 2;
+            scene.add(water);
+
+            // 4. Load External High-Fidelity 3D Model
+            // REQUIRED: Download a .glb caravel model from Sketchfab
+            const loader = new GLTFLoader();
+            loader.load(
+                'models/caravel.glb', 
+                function (gltf) {
+                    shipModel = gltf.scene;
+                    
+                    // Center and scale the model depending on its original size
+                    shipModel.scale.set(10, 10, 10);
+                    shipModel.position.y = -2; 
+                    
+                    scene.add(shipModel);
+                    
+                    // Hide loading screen
+                    document.getElementById('loading').style.opacity = '0';
+                    setTimeout(() => document.getElementById('loading').remove(), 1000);
+                },
+                function (xhr) {
+                    document.getElementById('loading').innerText = `Loading Assets (${Math.round(xhr.loaded / xhr.total * 100)}%)...`;
+                },
+                function (error) {
+                    console.error('Error loading model:', error);
+                    document.getElementById('loading').innerText = "Error: Check if models/caravel.glb exists.";
                 }
-            }, 50);
+            );
+
+            window.addEventListener('resize', onWindowResize);
         }
 
-        function finishVoyage() {
-            // Swap to Scene 2
-            document.getElementById('scene1').setAttribute('visible', 'false');
-            document.getElementById('cam1').setAttribute('active', 'false');
-            
-            document.getElementById('scene2').setAttribute('position', '0 0 0');
-            document.getElementById('scene2').setAttribute('visible', 'true');
-            document.getElementById('cam2').setAttribute('active', 'true');
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
 
-            const utter2 = new SpeechSynthesisUtterance("Scene Two. Landfall. On the island of Guanahani, Columbus and the Lucayan people meet face-to-face for the first time.");
-            window.speechSynthesis.speak(utter2);
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            // Animate realistic water
+            if (water) {
+                water.material.uniforms['time'].value += 1.0 / 60.0;
+            }
+
+            // Bob the ship gently on the waves
+            if (shipModel) {
+                shipModel.position.y = Math.sin(time * 1.5) * 1.5 - 2;
+                shipModel.rotation.x = Math.sin(time * 1.2) * 0.05;
+                shipModel.rotation.z = Math.sin(time * 0.8) * 0.05;
+            }
+
+            renderer.render(scene, camera);
         }
     </script>
 </body>
