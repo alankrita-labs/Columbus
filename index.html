@@ -69,7 +69,7 @@
         import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
         import { Water } from 'three/addons/objects/Water.js';
 
-        let scene, camera, renderer, water, sprayParticles, seagulls;
+        let scene, camera, renderer, water, seagulls;
         let mainShip, companionShip;
         let islandGroup, islandModel, columbusModel, lucayanModel, flagMesh, flagPole; 
         
@@ -94,8 +94,8 @@
 
             // 1. Scene & Camera Setup
             scene = new THREE.Scene();
-            // Start with thick, terrifying mist for the deep ocean
-            scene.fog = new THREE.FogExp2(0x8a5a44, 0.002); 
+            // Reverted to standard fog density
+            scene.fog = new THREE.FogExp2(0x1a2b3c, 0.0004); 
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
             camera.position.copy(cameraTarget);
@@ -117,39 +117,6 @@
             const sunLight = new THREE.DirectionalLight(0xffdfb3, 2.5);
             sunLight.position.set(200, 150, 100);
             scene.add(sunLight);
-
-            // --- SPECIAL EFFECTS: Sea Spray / Mist Particles ---
-            const particleGeo = new THREE.BufferGeometry();
-            const particleCount = 400; 
-            const posArray = new Float32Array(particleCount * 3);
-            for(let i = 0; i < particleCount * 3; i++) {
-                posArray[i * 3] = (Math.random() - 0.5) * 200; // X spread
-                posArray[i * 3 + 1] = Math.random() * 15;      // Low Y (near water)
-                posArray[i * 3 + 2] = (Math.random() - 0.5) * 300; // Z spread
-            }
-            particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-            
-            const particleCanvas = document.createElement('canvas');
-            particleCanvas.width = 32; particleCanvas.height = 32;
-            const pCtx = particleCanvas.getContext('2d');
-            const pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
-            pGrad.addColorStop(0, 'rgba(255, 255, 255, 0.8)'); // White sea spray center
-            pGrad.addColorStop(0.4, 'rgba(200, 230, 255, 0.3)'); // Light blue mist edge
-            pGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            pCtx.fillStyle = pGrad;
-            pCtx.fillRect(0,0,32,32);
-            const particleTexture = new THREE.CanvasTexture(particleCanvas);
-
-            const particleMat = new THREE.PointsMaterial({
-                size: 4.0, 
-                map: particleTexture,
-                transparent: true,
-                opacity: 0.5,
-                blending: THREE.NormalBlending,
-                depthWrite: false 
-            });
-            sprayParticles = new THREE.Points(particleGeo, particleMat);
-            scene.add(sprayParticles);
 
             // --- MASTER GROUP FOR ISLAND & CHARACTERS ---
             islandGroup = new THREE.Group();
@@ -338,13 +305,6 @@
 
             if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
 
-            // Animate Sea Spray / Mist Particles
-            if (sprayParticles) {
-                // Move spray rapidly backwards to simulate forward ship movement
-                sprayParticles.position.z += shipSpeed * 2.5;
-                if (sprayParticles.position.z > 200) sprayParticles.position.z = -200; 
-            }
-
             // Animate Seagulls (Flapping and Circling)
             if (seagullMixers.length > 0) {
                 seagullMixers.forEach(mixer => mixer.update(delta));
@@ -377,14 +337,6 @@
                 flagMesh.geometry.attributes.position.needsUpdate = true;
             }
 
-            // --- DYNAMIC MIST (Clears up as Island approaches) ---
-            if (islandGroup) {
-                // distanceRatio goes from 1.0 (far away) to 0.0 (arrived)
-                let distanceRatio = Math.max(0, Math.abs(islandGroup.position.z) / 3000);
-                // Fog transitions from dense (0.002) down to light/clear (0.0003)
-                scene.fog.density = 0.0003 + (0.0017 * distanceRatio);
-            }
-
             // --- SCENE 2 LOGIC (Sailing) ---
             if (currentScene === 2) {
                 // CAMERA BOBBING: Camera sways and bobs with the exact rhythm of the ship!
@@ -399,10 +351,10 @@
 
             // --- SCENE 3 LOGIC (Landing & Cinematic Camera) ---
             if (currentScene === 3) {
-                // Camera glides onto the beach, pulling back to frame everything perfectly
-                cameraTarget.set(0, 25, 10); 
-                // Focuses centrally between Columbus, the Lucayans, and the flag
-                lookAtTarget.set(0, 16, 75); 
+                // Keep the exact same camera angle as Scene 2
+                const bobbingAmount = Math.sin(time * 1.5) * 1.5;
+                cameraTarget.set(0, 18 + bobbingAmount, 45);
+                lookAtTarget.set(0, 5 + bobbingAmount, -20);
 
                 if (mainShip) {
                     mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2;
