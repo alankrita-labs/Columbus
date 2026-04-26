@@ -106,8 +106,15 @@
             renderer.toneMappingExposure = 1.1;
             container.appendChild(renderer.domElement);
 
+            // --- LIGHTING FIX (To reveal colors and faces) ---
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+            scene.add(hemiLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffdfb3, 2.0); // Warm vibrant sun
+            sunLight.position.set(200, 150, 100);
+            scene.add(sunLight);
+
             // --- MASTER GROUP FOR ISLAND & CHARACTERS ---
-            // Grouping them ensures they stay perfectly locked together no matter what
             islandGroup = new THREE.Group();
             islandGroup.position.set(0, 0, -3000); // Start very far away in the fog
             scene.add(islandGroup);
@@ -162,37 +169,37 @@
                 mainShip.position.set(0, -2, 0); 
                 scene.add(mainShip);
 
-                // Companion ship (Niña/Pinta) - Brought much closer to camera view!
+                // Companion ship (Niña/Pinta) - Brought well within the Camera FOV!
                 companionShip = mainShip.clone();
-                companionShip.position.set(18, -2, -10); 
-                companionShip.rotation.y = -0.05; // Slightly angled
+                companionShip.position.set(12, -2, 10); // Placed prominently on the right
+                companionShip.rotation.y = -0.05; 
                 scene.add(companionShip);
             });
 
-            // B. Load Island (Added to islandGroup)
+            // B. Load Island
             loader.load('island.glb', function (gltf) {
                 islandModel = gltf.scene;
                 islandModel.scale.set(50, 50, 50); 
-                islandModel.position.set(0, -5, 0); // Positioned Relative to Group!
+                islandModel.position.set(0, -5, 0); 
                 islandGroup.add(islandModel);
             });
 
-            // C. Load Columbus (Added to islandGroup)
+            // C. Load Columbus
             loader.load('columbus.glb', function (gltf) {
                 columbusModel = gltf.scene;
                 columbusModel.scale.set(5, 5, 5); 
-                // Positioned on the shore relative to the island
-                columbusModel.position.set(-15, 2, 20); 
+                // Raised Y from 2 to 8 to pull him out of the water mesh
+                columbusModel.position.set(-15, 8, 20); 
                 islandGroup.add(columbusModel);
             });
 
-            // D. Load Lucayan (Added to islandGroup)
+            // D. Load Lucayan
             loader.load('lucayan.glb', function (gltf) {
                 lucayanModel = gltf.scene;
                 lucayanModel.scale.set(5, 5, 5); 
-                // Facing Columbus on the shore
-                lucayanModel.position.set(15, 2, 10); 
-                lucayanModel.lookAt(-15, 2, 20); 
+                // Raised Y from 2 to 8 to pull them out of the water mesh
+                lucayanModel.position.set(15, 8, 10); 
+                lucayanModel.lookAt(-15, 8, 20); 
                 islandGroup.add(lucayanModel);
             });
 
@@ -234,7 +241,7 @@
             if (currentScene === 2) {
                 // Camera is positioned on/behind the main ship
                 cameraTarget.set(0, 18, 45);
-                lookAtTarget.set(0, 5, -20); // Looking forward past our ship to the companion ship
+                lookAtTarget.set(0, 5, -20); // Looking forward past our ship
 
                 // Entire Island Group approaches from the fog
                 if (islandGroup && islandGroup.position.z < -100) {
@@ -244,12 +251,12 @@
 
             // --- SCENE 3 LOGIC (Landing & Cinematic Camera) ---
             if (currentScene === 3) {
-                // Camera glides onto the beach (islandGroup is anchored at Z = -100)
-                cameraTarget.set(0, 10, -50); 
-                // Camera focuses perfectly between Columbus and the Lucayans
-                lookAtTarget.set(-2, 5, -80); 
+                // Camera glides onto the beach, elevated to account for character height
+                cameraTarget.set(0, 15, -45); 
+                // Camera focuses higher on the characters' faces
+                lookAtTarget.set(-2, 10, -80); 
 
-                // Anchor the ships, drastically reducing bobbing in the shallow waters
+                // Anchor the ships
                 if (mainShip) {
                     mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2;
                     mainShip.rotation.x = Math.sin(time * 0.5) * 0.01;
