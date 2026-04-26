@@ -30,6 +30,9 @@
         import { Water } from 'three/addons/objects/Water.js';
 
         let scene, camera, renderer, water, shipModel;
+        // Variables for your new characters
+        let columbusModel, lucayanModel; 
+        
         const clock = new THREE.Clock();
 
         init();
@@ -50,21 +53,37 @@
             renderer.toneMappingExposure = 1.0;
             container.appendChild(renderer.domElement);
 
+            // --- LOADING MANAGER ---
+            // This ensures the loading screen waits for ALL models, textures, and HDRI to finish loading
+            const manager = new THREE.LoadingManager();
+            manager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
+                document.getElementById('loading').innerText = `Loading High-Fidelity Assets (${Math.round((itemsLoaded / itemsTotal) * 100)}%)...`;
+            };
+            manager.onLoad = function ( ) {
+                document.getElementById('loading').style.opacity = '0';
+                setTimeout(() => {
+                    const el = document.getElementById('loading');
+                    if (el) el.remove();
+                }, 1000);
+            };
+            manager.onError = function ( url ) {
+                console.error('Error loading:', url);
+                document.getElementById('loading').innerText = "Error loading an asset. Check console & paths.";
+            };
+
             // 2. Load HDRI for Photorealistic Lighting & Skybox
-            // REQUIRED: Download a .hdr file from Polyhaven and place it in a 'textures' folder
-            new RGBELoader().setPath('textures/').load('sunset_sky.hdr', function (texture) {
+            new RGBELoader(manager).setPath('textures/').load('sunset_sky.hdr', function (texture) {
                 texture.mapping = THREE.EquirectangularReflectionMapping;
                 scene.background = texture;
                 scene.environment = texture;
             });
 
             // 3. Realistic Water Shader
-            // REQUIRED: Download a water normal map texture
             const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
             water = new Water(waterGeometry, {
                 textureWidth: 512,
                 textureHeight: 512,
-                waterNormals: new THREE.TextureLoader().load('textures/waternormals.jpg', function (texture) {
+                waterNormals: new THREE.TextureLoader(manager).load('textures/waternormals.jpg', function (texture) {
                     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
                 }),
                 sunDirection: new THREE.Vector3(1, 1, 1).normalize(),
@@ -75,32 +94,44 @@
             water.rotation.x = -Math.PI / 2;
             scene.add(water);
 
-            // 4. Load External High-Fidelity 3D Model
-            // REQUIRED: Download a .glb caravel model from Sketchfab
-            const loader = new GLTFLoader();
-            loader.load(
-                'models/caravel.glb', 
-                function (gltf) {
-                    shipModel = gltf.scene;
-                    
-                    // Center and scale the model depending on its original size
-                    shipModel.scale.set(10, 10, 10);
-                    shipModel.position.y = -2; 
-                    
-                    scene.add(shipModel);
-                    
-                    // Hide loading screen
-                    document.getElementById('loading').style.opacity = '0';
-                    setTimeout(() => document.getElementById('loading').remove(), 1000);
-                },
-                function (xhr) {
-                    document.getElementById('loading').innerText = `Loading Assets (${Math.round(xhr.loaded / xhr.total * 100)}%)...`;
-                },
-                function (error) {
-                    console.error('Error loading model:', error);
-                    document.getElementById('loading').innerText = "Error: Check if models/caravel.glb exists.";
-                }
-            );
+            // 4. Load External High-Fidelity 3D Models
+            const loader = new GLTFLoader(manager);
+            
+            // A. Load Caravel
+            loader.load('models/caravel.glb', function (gltf) {
+                shipModel = gltf.scene;
+                shipModel.scale.set(10, 10, 10);
+                shipModel.position.y = -2; 
+                scene.add(shipModel);
+            });
+
+            // B. Load Columbus
+            loader.load('models/columbus.glb', function (gltf) {
+                columbusModel = gltf.scene;
+                // Adjust scale according to the original GLB size
+                columbusModel.scale.set(10, 10, 10); 
+                
+                // Position Columbus on the deck of the ship
+                // You will need to tweak these X, Y, Z values to match your specific ship model's deck height
+                columbusModel.position.set(0, 5, 0); 
+                
+                // Tip: If you want Columbus to bob up and down WITH the ship, 
+                // you would do `shipModel.add(columbusModel);` instead of `scene.add(columbusModel);`
+                // (Make sure to do this inside the animate loop or ensure shipModel is loaded first)
+                scene.add(columbusModel);
+            });
+
+            // C. Load Lucayan
+            loader.load('models/lucayan.glb', function (gltf) {
+                lucayanModel = gltf.scene;
+                // Adjust scale according to the original GLB size
+                lucayanModel.scale.set(10, 10, 10); 
+                
+                // Position the Lucayan somewhere else (e.g., distant shore or approaching boat)
+                lucayanModel.position.set(50, -2, -50); 
+                
+                scene.add(lucayanModel);
+            });
 
             window.addEventListener('resize', onWindowResize);
         }
@@ -125,6 +156,14 @@
                 shipModel.position.y = Math.sin(time * 1.5) * 1.5 - 2;
                 shipModel.rotation.x = Math.sin(time * 1.2) * 0.05;
                 shipModel.rotation.z = Math.sin(time * 0.8) * 0.05;
+                
+                // If Columbus is added to the scene (not the ship group), 
+                // you can make him bob identically to the ship here:
+                if (columbusModel) {
+                    columbusModel.position.y = shipModel.position.y + 7; // offset by deck height
+                    columbusModel.rotation.x = shipModel.rotation.x;
+                    columbusModel.rotation.z = shipModel.rotation.z;
+                }
             }
 
             renderer.render(scene, camera);
