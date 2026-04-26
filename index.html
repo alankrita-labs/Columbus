@@ -264,6 +264,8 @@
                 if (flagPole) flagPole.visible = true;
                 if (flagMesh) flagMesh.visible = true;
             });
+            document.body.appendChild( VRButton.createButton( renderer ) );
+            renderer.xr.enabled = true;
         }
 
         function createSpanishFlag() {
@@ -374,5 +376,6 @@
             renderer.render(scene, camera);
         }
     </script>
+    <script src="https://unpkg.com/three@0.150.1/examples/jsm/webxr/VRButton.js"></script>
 </body>
 </html>
