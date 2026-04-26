@@ -13,7 +13,7 @@
         /* Loading Screen */
         #loading { background: #111; color: #d4af37; display: flex; justify-content: center; align-items: center; font-size: 24px; z-index: 100; transition: opacity 1s; }
         
-        /* Scene 1: Map overlay - Explicitly using contain to prevent cutoff */
+        /* Scene 1: Map overlay */
         #scene-map { 
             background-color: #050402;
             background-image: url('map.png');
@@ -22,6 +22,19 @@
             background-repeat: no-repeat;
             z-index: 50; 
             display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 80px; transition: opacity 1.5s; 
+        }
+
+        /* Animated Ship Icon for Map */
+        #map-ship-icon {
+            position: absolute;
+            right: 25%;
+            top: 40%;
+            width: 50px;
+            height: 50px;
+            z-index: 60;
+            transition: all 12s ease-in-out;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.8));
+            transform: scaleX(-1); /* Flips it to face left towards Americas */
         }
         
         /* Scene 2 & 3 UI overlays */
@@ -41,6 +54,9 @@
     
     <!-- Scene 1: The 2D Map -->
     <div id="scene-map" class="layer">
+        <!-- SVG Map Ship -->
+        <img id="map-ship-icon" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M10,60 L90,60 L75,80 L25,80 Z' fill='%23d4af37'/><path d='M45,20 L45,60 M55,30 L55,60' stroke='%23d4af37' stroke-width='4'/><path d='M45,20 Q60,30 45,50' fill='%23fff'/><path d='M55,30 Q70,40 55,55' fill='%23fff'/></svg>" />
+        
         <div class="narration">August 1492: Leaving the known world behind. Crossing the vast, terrifying ocean.</div>
         <button id="btn-sail" class="btn">Set Sail (Enter 3D)</button>
     </div>
@@ -69,9 +85,9 @@
         import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
         import { Water } from 'three/addons/objects/Water.js';
 
-        let scene, camera, renderer, water;
+        let scene, camera, renderer, water, particles;
         let mainShip, companionShip;
-        let islandGroup, islandModel, columbusModel, lucayanModel; 
+        let islandGroup, islandModel, columbusModel, lucayanModel, flagMesh; 
         
         const clock = new THREE.Clock();
         
@@ -92,8 +108,6 @@
 
             // 1. Scene & Camera Setup
             scene = new THREE.Scene();
-            
-            // Add cinematic fog to hide the horizon and simulate the deep ocean
             scene.fog = new THREE.FogExp2(0x1a2b3c, 0.0004);
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
@@ -106,21 +120,38 @@
             renderer.toneMappingExposure = 1.1;
             container.appendChild(renderer.domElement);
 
-            // --- LIGHTING FIX (To reveal colors and faces clearly) ---
-            // Added a strong ambient light to completely kill silhouettes
+            // --- LIGHTING ---
             const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); 
             scene.add(ambientLight);
 
             const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
             scene.add(hemiLight);
 
-            const sunLight = new THREE.DirectionalLight(0xffdfb3, 2.5); // Warm vibrant sun
+            const sunLight = new THREE.DirectionalLight(0xffdfb3, 2.5);
             sunLight.position.set(200, 150, 100);
             scene.add(sunLight);
 
+            // --- SPECIAL EFFECTS: Magical Ocean Particles ---
+            const particleGeo = new THREE.BufferGeometry();
+            const particleCount = 1500;
+            const posArray = new Float32Array(particleCount * 3);
+            for(let i = 0; i < particleCount * 3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 400; // Spread around the scene
+            }
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particleMat = new THREE.PointsMaterial({
+                size: 0.8,
+                color: 0xffcc44, // Golden vibrant embers
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+            particles = new THREE.Points(particleGeo, particleMat);
+            scene.add(particles);
+
             // --- MASTER GROUP FOR ISLAND & CHARACTERS ---
             islandGroup = new THREE.Group();
-            islandGroup.position.set(0, 0, -3000); // Start very far away in the fog
+            islandGroup.position.set(0, 0, -3000); 
             scene.add(islandGroup);
 
             // --- LOADING MANAGER ---
@@ -130,7 +161,12 @@
             };
             manager.onLoad = function () {
                 document.getElementById('loading').style.opacity = '0';
-                setTimeout(() => document.getElementById('loading').remove(), 1000);
+                setTimeout(() => {
+                    document.getElementById('loading').remove();
+                    // Start Map Animation
+                    document.getElementById('map-ship-icon').style.right = '65%';
+                    document.getElementById('map-ship-icon').style.top = '50%';
+                }, 1000);
             };
             manager.onError = function ( url ) {
                 console.error('Error loading:', url);
@@ -142,7 +178,6 @@
                 texture.mapping = THREE.EquirectangularReflectionMapping;
                 scene.background = texture;
                 scene.environment = texture;
-                // Update fog color to match the sky slightly
                 scene.fog.color.setHex(0x8a5a44); 
             });
 
@@ -155,7 +190,7 @@
                     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
                 }),
                 sunDirection: new THREE.Vector3(1, 1, 1).normalize(),
-                sunColor: 0xffffff,
+                sunColor: 0xffdfb3,
                 waterColor: 0x001e0f,
                 distortionScale: 3.7,
             });
@@ -167,16 +202,15 @@
             
             // A. Load Main Ship & Companion Ship
             loader.load('ship.glb', function (gltf) {
-                // Main ship (Santa Maria)
                 mainShip = gltf.scene;
                 mainShip.scale.set(5, 5, 5); 
                 mainShip.position.set(0, -2, 0); 
                 scene.add(mainShip);
 
-                // Companion ship (Niña/Pinta) - Moved further ahead and clearly to the right
+                // Companion ship - Moved MUCH closer and inside the camera view!
                 companionShip = mainShip.clone();
-                companionShip.position.set(35, -2, -50); 
-                companionShip.rotation.y = -0.1; // Slightly angled inward
+                companionShip.position.set(20, -2, -5); 
+                companionShip.rotation.y = -0.05; 
                 scene.add(companionShip);
             });
 
@@ -192,8 +226,8 @@
             loader.load('columbus.glb', function (gltf) {
                 columbusModel = gltf.scene;
                 columbusModel.scale.set(5, 5, 5); 
-                // Drastically raised Y to 35 and pushed further inland (Z to 60) to avoid island water mesh
-                columbusModel.position.set(-20, 35, 60); 
+                // Raised Y to 8, pushed Z to 30 to get completely on the beach
+                columbusModel.position.set(-15, 8, 30); 
                 islandGroup.add(columbusModel);
             });
 
@@ -201,11 +235,14 @@
             loader.load('lucayan.glb', function (gltf) {
                 lucayanModel = gltf.scene;
                 lucayanModel.scale.set(5, 5, 5); 
-                // Drastically raised Y to 35 and pushed further inland (Z to 50)
-                lucayanModel.position.set(20, 35, 50); 
-                lucayanModel.lookAt(-20, 35, 60); // Look at Columbus
+                // Raised Y to 8, pushed Z to 20
+                lucayanModel.position.set(15, 8, 20); 
+                lucayanModel.lookAt(-15, 8, 30); // Look at Columbus
                 islandGroup.add(lucayanModel);
             });
+
+            // E. Create the Spanish Flag & Pole
+            createSpanishFlag();
 
             window.addEventListener('resize', onWindowResize);
             
@@ -225,8 +262,35 @@
                 document.getElementById('ui-text').innerText = "October 12, 1492: Columbus makes landfall and meets the Lucayans.";
 
                 // Instantly snap the entire island group directly in front of the ships
-                islandGroup.position.z = -100;
+                islandGroup.position.z = -80;
             });
+        }
+
+        function createSpanishFlag() {
+            // Flag Pole
+            const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 15);
+            const poleMat = new THREE.MeshStandardMaterial({color: 0x8b5a2b});
+            const pole = new THREE.Mesh(poleGeo, poleMat);
+            // Placed immediately to the left of Columbus (-15, 8, 30 -> -20, 15, 30)
+            pole.position.set(-20, 15, 30); 
+            islandGroup.add(pole);
+
+            // Waving Flag Canvas Texture (Spanish Burgundy Cross style)
+            const flagTexCanvas = document.createElement('canvas');
+            flagTexCanvas.width = 256; flagTexCanvas.height = 128;
+            const ctx = flagTexCanvas.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0,0,256,128);
+            ctx.fillStyle = '#cc0000'; 
+            ctx.fillRect(110,0,36,128); // Vertical stripe
+            ctx.fillRect(0,46,256,36);  // Horizontal stripe
+            const flagTex = new THREE.CanvasTexture(flagTexCanvas);
+
+            // Flag Cloth
+            const flagGeo = new THREE.PlaneGeometry(8, 5, 10, 10);
+            const flagMat = new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide });
+            flagMesh = new THREE.Mesh(flagGeo, flagMat);
+            flagMesh.position.set(-16, 20, 30); // Attached to top of pole
+            islandGroup.add(flagMesh);
         }
 
         function onWindowResize() {
@@ -241,26 +305,42 @@
 
             if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
 
+            // Animate Magic Particles
+            if (particles) {
+                particles.rotation.y = time * 0.05;
+                particles.position.z += 0.2;
+                if (particles.position.z > 100) particles.position.z = -200; // Reset
+            }
+
+            // Animate Waving Flag
+            if (flagMesh) {
+                const pos = flagMesh.geometry.attributes.position;
+                for(let i = 0; i < pos.count; i++) {
+                    const x = pos.getX(i);
+                    // Sine wave distortion based on X position to simulate wind
+                    pos.setZ(i, Math.sin(x * 1.5 - time * 5) * 0.8);
+                }
+                flagMesh.geometry.computeVertexNormals();
+                flagMesh.geometry.attributes.position.needsUpdate = true;
+            }
+
             // --- SCENE 2 LOGIC (Sailing from Deep Ocean) ---
             if (currentScene === 2) {
-                // Camera is positioned on/behind the main ship
                 cameraTarget.set(0, 18, 45);
-                lookAtTarget.set(0, 5, -20); // Looking forward past our ship
+                lookAtTarget.set(0, 5, -20);
 
-                // Entire Island Group approaches from the fog
-                if (islandGroup && islandGroup.position.z < -100) {
+                if (islandGroup && islandGroup.position.z < -80) {
                     islandGroup.position.z += shipSpeed;
                 }
             }
 
             // --- SCENE 3 LOGIC (Landing & Cinematic Camera) ---
             if (currentScene === 3) {
-                // Camera glides high onto the beach to match the newly elevated character positions
-                cameraTarget.set(0, 40, -10); 
-                // Camera focuses on the characters' new positions inland
-                lookAtTarget.set(0, 35, -80); 
+                // Glides onto the beach near Columbus
+                cameraTarget.set(0, 15, -10); 
+                // Focuses on the characters and the flag
+                lookAtTarget.set(-2, 12, -50); 
 
-                // Anchor the ships
                 if (mainShip) {
                     mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2;
                     mainShip.rotation.x = Math.sin(time * 0.5) * 0.01;
@@ -269,7 +349,7 @@
                 if (companionShip) {
                     companionShip.position.y = Math.sin(time * 1.0 + 1) * 0.3 - 2;
                     companionShip.rotation.x = Math.sin(time * 0.5 + 1) * 0.01;
-                    companionShip.rotation.z = -0.1;
+                    companionShip.rotation.z = -0.05;
                 }
             }
 
@@ -283,7 +363,7 @@
                 if (companionShip) {
                     companionShip.position.y = Math.sin(time * 1.5 + 1) * 1.5 - 2;
                     companionShip.rotation.x = Math.sin(time * 1.2 + 1) * 0.05;
-                    companionShip.rotation.z = Math.sin(time * 0.8 + 1) * 0.05 - 0.1;
+                    companionShip.rotation.z = Math.sin(time * 0.8 + 1) * 0.05 - 0.05;
                 }
             }
 
