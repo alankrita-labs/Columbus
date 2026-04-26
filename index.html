@@ -13,10 +13,10 @@
         /* Loading Screen */
         #loading { background: #111; color: #d4af37; display: flex; justify-content: center; align-items: center; font-size: 24px; z-index: 100; transition: opacity 1s; }
         
-        /* Scene 1: Map overlay */
+        /* Scene 1: Map overlay - Changed to 'contain' so it doesn't cut off */
         #scene-map { 
-            background: url('map.png') center/cover no-repeat, #1a1510; 
-            z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; pb-20; transition: opacity 1.5s; 
+            background: url('map.png') center/contain no-repeat, #1a1510; 
+            z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 80px; transition: opacity 1.5s; 
         }
         
         /* Scene 2 & 3 UI overlays */
@@ -42,7 +42,7 @@
 
     <!-- Scene 2 & 3 UI Overlay -->
     <div id="scene-ui" class="layer">
-        <div id="ui-text" class="narration">Sailing across the Atlantic... The island approaches.</div>
+        <div id="ui-text" class="narration">Sailing across the Atlantic... The island slowly approaches.</div>
         <button id="btn-land" class="btn">Make Landfall (Meet the Lucayans)</button>
     </div>
 
@@ -65,13 +65,18 @@
         import { Water } from 'three/addons/objects/Water.js';
 
         let scene, camera, renderer, water;
-        let shipModel, islandModel, columbusModel, lucayanModel; 
+        let mainShip, companionShip, islandModel, columbusModel, lucayanModel; 
         
         const clock = new THREE.Clock();
         
         // State management
         let currentScene = 1; 
         let shipSpeed = 0.5;
+
+        // Camera Tracking Variables
+        let cameraTarget = new THREE.Vector3(0, 20, 50);
+        let lookAtTarget = new THREE.Vector3(0, 5, 0);
+        let currentLookAt = new THREE.Vector3(0, 5, 0);
 
         init();
         animate();
@@ -82,9 +87,7 @@
             // 1. Scene & Camera Setup
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
-            
-            // Initial camera position (behind the ship)
-            camera.position.set(0, 30, 80);
+            camera.position.copy(cameraTarget);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setPixelRatio(window.devicePixelRatio);
@@ -104,17 +107,17 @@
             };
             manager.onError = function ( url ) {
                 console.error('Error loading:', url);
-                document.getElementById('loading').innerText = "Asset missing. Ensure all .glb, .png, .hdr, and .jpg files are in the same folder.";
+                document.getElementById('loading').innerText = "Asset missing. Ensure all files are in the same folder.";
             };
 
-            // 2. Load HDRI (Loaded directly from root directory)
+            // 2. Load HDRI
             new RGBELoader(manager).load('sunset_sky.hdr', function (texture) {
                 texture.mapping = THREE.EquirectangularReflectionMapping;
                 scene.background = texture;
                 scene.environment = texture;
             });
 
-            // 3. Realistic Water Shader (Loaded directly from root directory)
+            // 3. Realistic Water Shader
             const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
             water = new Water(waterGeometry, {
                 textureWidth: 512,
@@ -130,22 +133,28 @@
             water.rotation.x = -Math.PI / 2;
             scene.add(water);
 
-            // 4. Load Models (Directly from root directory as requested)
+            // 4. Load Models
             const loader = new GLTFLoader(manager);
             
-            // A. Load Ship
+            // A. Load Main Ship & Companion Ship (Niña/Pinta)
             loader.load('ship.glb', function (gltf) {
-                shipModel = gltf.scene;
-                shipModel.scale.set(5, 5, 5); // Tweak scale based on your model
-                shipModel.position.set(0, -2, 0); 
-                scene.add(shipModel);
+                // The ship we are following
+                mainShip = gltf.scene;
+                mainShip.scale.set(5, 5, 5); 
+                mainShip.position.set(0, -2, 0); 
+                scene.add(mainShip);
+
+                // The companion ship sailing beside us for perspective!
+                companionShip = mainShip.clone();
+                companionShip.position.set(45, -2, -30); // To the right and slightly ahead
+                scene.add(companionShip);
             });
 
-            // B. Load Island
+            // B. Load Island (Starts much further away now to make Scene 2 longer)
             loader.load('island.glb', function (gltf) {
                 islandModel = gltf.scene;
-                islandModel.scale.set(50, 50, 50); // Islands are big
-                islandModel.position.set(0, -5, -800); // Placed far away initially
+                islandModel.scale.set(50, 50, 50); 
+                islandModel.position.set(0, -5, -1500); // Increased from -800 to -1500
                 scene.add(islandModel);
             });
 
@@ -153,8 +162,8 @@
             loader.load('columbus.glb', function (gltf) {
                 columbusModel = gltf.scene;
                 columbusModel.scale.set(5, 5, 5); 
-                // Position Columbus on the island's shore
-                columbusModel.position.set(-10, 0, -780); 
+                // Position Columbus on the island's shore (relative to the new -1500 start)
+                columbusModel.position.set(-10, 0, -1480); 
                 scene.add(columbusModel);
             });
 
@@ -162,9 +171,8 @@
             loader.load('lucayan.glb', function (gltf) {
                 lucayanModel = gltf.scene;
                 lucayanModel.scale.set(5, 5, 5); 
-                // Position the Lucayan on the shore facing Columbus
-                lucayanModel.position.set(10, 0, -785); 
-                lucayanModel.lookAt(-10, 0, -780); // Look at Columbus
+                lucayanModel.position.set(10, 0, -1485); 
+                lucayanModel.lookAt(-10, 0, -1480); // Look at Columbus
                 scene.add(lucayanModel);
             });
 
@@ -172,7 +180,6 @@
             
             // --- UI INTERACTIONS ---
             document.getElementById('btn-sail').addEventListener('click', () => {
-                // Transition from Map (Scene 1) to 3D Ship (Scene 2)
                 document.getElementById('scene-map').style.opacity = '0';
                 setTimeout(() => {
                     document.getElementById('scene-map').style.display = 'none';
@@ -182,10 +189,17 @@
             });
 
             document.getElementById('btn-land').addEventListener('click', () => {
-                // Transition to Landing (Scene 3)
                 currentScene = 3;
                 document.getElementById('btn-land').style.display = 'none';
                 document.getElementById('ui-text').innerText = "October 12, 1492: Columbus makes landfall and meets the Lucayans.";
+
+                // If user clicks early, fast-forward the island to a fixed landing distance
+                if (islandModel && islandModel.position.z < -60) {
+                    const distanceToCover = -60 - islandModel.position.z;
+                    islandModel.position.z += distanceToCover;
+                    if (columbusModel) columbusModel.position.z += distanceToCover;
+                    if (lucayanModel) lucayanModel.position.z += distanceToCover;
+                }
             });
         }
 
@@ -199,42 +213,64 @@
             requestAnimationFrame(animate);
             const time = clock.getElapsedTime();
 
-            // Animate realistic water
-            if (water) {
-                water.material.uniforms['time'].value += 1.0 / 60.0;
-            }
+            if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
 
-            // Scene 2 Logic: Sailing towards the island
+            // --- SCENE 2 LOGIC (Sailing) ---
             if (currentScene === 2) {
-                if (shipModel) {
-                    // Ship bobs on the waves
-                    shipModel.position.y = Math.sin(time * 1.5) * 1.5 - 2;
-                    shipModel.rotation.x = Math.sin(time * 1.2) * 0.05;
-                    shipModel.rotation.z = Math.sin(time * 0.8) * 0.05;
-                }
-                
-                // Move island (and characters) closer to simulate sailing
-                if (islandModel && islandModel.position.z < -100) {
+                // Camera is positioned on/behind the main ship
+                cameraTarget.set(0, 15, 35);
+                lookAtTarget.set(0, 5, -20); // Looking forward past our ship to the companion ship
+
+                // Island approaches slowly
+                if (islandModel && islandModel.position.z < -60) {
                     islandModel.position.z += shipSpeed;
                     if (columbusModel) columbusModel.position.z += shipSpeed;
                     if (lucayanModel) lucayanModel.position.z += shipSpeed;
                 }
             }
 
-            // Scene 3 Logic: The Meeting
+            // --- SCENE 3 LOGIC (Landing) ---
             if (currentScene === 3) {
-                // Move camera off the ship and onto the beach to look at the characters
-                // Lerp (smoothly interpolate) camera position to the island shore
-                camera.position.lerp(new THREE.Vector3(0, 15, -750), 0.02);
-                camera.lookAt(0, 5, -785);
+                // Move camera dynamically to where the island actually stopped
+                const targetZ = islandModel ? islandModel.position.z : -60;
                 
-                // Stop the ship bobbing aggressively since it's "anchored"
-                if (shipModel) {
-                    shipModel.position.y = Math.sin(time * 1.0) * 0.5 - 2;
-                    shipModel.rotation.x = Math.sin(time * 0.5) * 0.02;
-                    shipModel.rotation.z = 0;
+                // Camera glides onto the beach near the characters
+                cameraTarget.set(0, 8, targetZ + 60); 
+                // Camera focuses perfectly between Columbus and the Lucayans
+                lookAtTarget.set(0, 5, targetZ + 20); 
+
+                // Stop the ships from bobbing so aggressively, they are anchored
+                if (mainShip) {
+                    mainShip.position.y = Math.sin(time * 1.0) * 0.5 - 2;
+                    mainShip.rotation.x = Math.sin(time * 0.5) * 0.02;
+                    mainShip.rotation.z = 0;
+                }
+                if (companionShip) {
+                    companionShip.position.y = Math.sin(time * 1.0 + 1) * 0.5 - 2;
+                    companionShip.rotation.x = Math.sin(time * 0.5 + 1) * 0.02;
+                    companionShip.rotation.z = 0;
                 }
             }
+
+            // --- SHIP BOBBING (Active mainly in Scene 2) ---
+            if (currentScene === 2) {
+                if (mainShip) {
+                    mainShip.position.y = Math.sin(time * 1.5) * 1.5 - 2;
+                    mainShip.rotation.x = Math.sin(time * 1.2) * 0.05;
+                    mainShip.rotation.z = Math.sin(time * 0.8) * 0.05;
+                }
+                if (companionShip) {
+                    // Slight offset in math so they don't bob exactly identically
+                    companionShip.position.y = Math.sin(time * 1.5 + 1) * 1.5 - 2;
+                    companionShip.rotation.x = Math.sin(time * 1.2 + 1) * 0.05;
+                    companionShip.rotation.z = Math.sin(time * 0.8 + 1) * 0.05;
+                }
+            }
+
+            // --- SMOOTH CAMERA MOVEMENT ---
+            camera.position.lerp(cameraTarget, 0.02);
+            currentLookAt.lerp(lookAtTarget, 0.02);
+            camera.lookAt(currentLookAt);
 
             renderer.render(scene, camera);
         }
