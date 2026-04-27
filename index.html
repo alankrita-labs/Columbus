@@ -37,7 +37,266 @@
         <button id="btn-land" class="btn" style="position: absolute; bottom: 80px;">Make Landfall</button>
     </div>
 
+    <div id="three-container" class="layer"></div><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Photorealistic Voyage Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
+    <style>
+        /* CSS FIX: Prevents the canvas from spilling over the phone's safe-areas */
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Georgia', serif; color: #fff; touch-action: none; position: fixed; inset: 0; }
+        canvas { display: block; width: 100% !important; height: 100% !important; outline: none; }
+        .layer { position: absolute; inset: 0; width: 100%; height: 100%; }
+        
+        #loading { background: #111; color: #d4af37; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 20px; z-index: 100; transition: opacity 1s; text-align: center; padding: 20px; }
+        #loading-text { margin-top: 15px; font-size: 16px; color: #aaa; }
+        
+        #scene-map { background-color: #050402; background-image: url('map.png'); background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 80px; transition: opacity 1.5s; }
+        #scene-ui { z-index: 40; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; transition: opacity 1s; }
+        
+        .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 30px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); border-radius: 8px; -webkit-tap-highlight-color: transparent; }
+        .btn:active { background: #ffdf73; transform: scale(0.95); }
+        .vr-warning { color: #ffcc44; font-size: 14px; font-weight: bold; margin-top: 5px; text-align: center; padding: 0 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        #three-container { z-index: 10; }
+    </style>
+</head>
+<body>
+    <div id="loading" class="layer">
+        <div>Loading High-Fidelity Assets...</div>
+        <div id="loading-text">0%</div>
+    </div>
+    
+    <div id="scene-map" class="layer">
+        <button id="btn-sail" class="btn">Set Sail (Standard 2D)</button>
+        <p class="vr-warning">⚠️ FOR VR: Please rotate your phone sideways (Landscape) BEFORE tapping ENTER VR!</p>
+    </div>
+
+    <div id="scene-ui" class="layer">
+        <button id="btn-land" class="btn" style="position: absolute; bottom: 80px;">Make Landfall</button>
+    </div>
+
     <div id="three-container" class="layer"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+        import { Water } from 'three/addons/objects/Water.js';
+        import { VRButton } from 'three/addons/webxr/VRButton.js';
+
+        // Initialize WebXR Polyfill
+        if (window.WebXRPolyfill) {
+            new window.WebXRPolyfill({
+                cardboardConfig: {
+                    CARDBOARD_UI_DISABLED: true
+                }
+            });
+        }
+
+        let scene, camera, renderer, water, particles, cameraRig;
+        let mainShip, companionShip, islandGroup, islandModel, columbusModel, lucayanModel, flagMesh, flagPole; 
+        
+        const clock = new THREE.Clock();
+        let currentScene = 1; 
+        let shipSpeed = 1.2;
+
+        let cameraTarget = new THREE.Vector3(0, 20, 50);
+        let lookAtTarget = new THREE.Vector3(0, 5, 0);
+        let currentLookAt = new THREE.Vector3(0, 5, 0);
+
+        init();
+
+        function init() {
+            const container = document.getElementById('three-container');
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x1a2b3c, 0.0004); 
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
+            
+            cameraRig = new THREE.Group();
+            cameraRig.position.copy(cameraTarget);
+            cameraRig.add(camera);
+            scene.add(cameraRig);
+
+            renderer = new THREE.WebGLRenderer({ antialias: false }); 
+            const pixelRatio = window.innerWidth < 800 ? 1.0 : Math.min(window.devicePixelRatio, 1.5);
+            renderer.setPixelRatio(pixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; 
+            renderer.toneMappingExposure = 1.1;
+            renderer.xr.enabled = true;
+            
+            // Create VR Button
+            const vrButton = VRButton.createButton(renderer);
+            document.body.appendChild(vrButton);
+
+            // FORCE FULLSCREEN ON VR START
+            vrButton.addEventListener('click', () => {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            });
+            
+            container.appendChild(renderer.domElement);
+
+            // Lighting & Particles (Omitted for brevity, kept exactly the same as previous)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); 
+            scene.add(ambientLight);
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
+            scene.add(hemiLight);
+            const sunLight = new THREE.DirectionalLight(0xffdfb3, 2.5);
+            sunLight.position.set(200, 150, 100);
+            scene.add(sunLight);
+
+            const particleGeo = new THREE.BufferGeometry();
+            const posArray = new Float32Array(600);
+            for(let i = 0; i < 600; i++) posArray[i] = (Math.random() - 0.5) * 400;
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 32; pCanvas.height = 32;
+            const pCtx = pCanvas.getContext('2d');
+            const pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            pGrad.addColorStop(0, 'rgba(255,255,255,1)'); pGrad.addColorStop(0.2, 'rgba(255,204,68,1)'); pGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            pCtx.fillStyle = pGrad; pCtx.fillRect(0,0,32,32);
+            particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({ size: 2.0, map: new THREE.CanvasTexture(pCanvas), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+            scene.add(particles);
+
+            islandGroup = new THREE.Group();
+            islandGroup.position.set(0, 0, -3000); 
+            scene.add(islandGroup);
+
+            const manager = new THREE.LoadingManager();
+            manager.onProgress = (url, loaded, total) => { document.getElementById('loading-text').innerText = `${Math.round((loaded/total)*100)}%`; };
+            manager.onLoad = () => { document.getElementById('loading').style.opacity = '0'; setTimeout(() => document.getElementById('loading').remove(), 1000); };
+
+            new RGBELoader(manager).load('sunset_sky.hdr', (texture) => {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+                scene.background = texture; scene.environment = texture;
+            });
+
+            water = new Water(new THREE.PlaneGeometry(10000, 10000), {
+                textureWidth: 256, textureHeight: 256,
+                waterNormals: new THREE.TextureLoader(manager).load('waternormals.jpg', (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; }),
+                sunDirection: new THREE.Vector3(1, 1, 1).normalize(), sunColor: 0xffdfb3, waterColor: 0x001e0f, distortionScale: 3.7,
+            });
+            water.rotation.x = -Math.PI / 2; scene.add(water);
+
+            const loader = new GLTFLoader(manager);
+            loader.load('ship.glb', (gltf) => {
+                mainShip = gltf.scene; mainShip.scale.set(5, 5, 5); mainShip.position.set(0, -2, 0); scene.add(mainShip);
+                companionShip = mainShip.clone(); companionShip.position.set(-25, -2, -15); companionShip.rotation.y = 0.05; scene.add(companionShip);
+            });
+            loader.load('island.glb', (gltf) => { islandModel = gltf.scene; islandModel.scale.set(50, 50, 50); islandModel.position.set(0, -5, 0); islandGroup.add(islandModel); });
+            loader.load('columbus.glb', (gltf) => { columbusModel = gltf.scene; columbusModel.scale.set(5, 5, 5); columbusModel.position.set(-15, 6.5, 80); columbusModel.visible = false; islandGroup.add(columbusModel); });
+            loader.load('lucayan.glb', (gltf) => { lucayanModel = gltf.scene; lucayanModel.scale.set(5, 5, 5); lucayanModel.position.set(15, 6.5, 70); lucayanModel.lookAt(-15, 6.5, 80); lucayanModel.visible = false; islandGroup.add(lucayanModel); });
+
+            createSpanishFlag();
+
+            const triggerSail = () => { 
+                currentScene = 2; 
+                document.getElementById('scene-map').style.display = 'none'; 
+                document.getElementById('scene-ui').style.opacity = '1'; 
+            };
+            
+            const triggerLand = () => { 
+                currentScene = 3; 
+                document.getElementById('btn-land').style.display = 'none'; 
+                islandGroup.position.z = -80; 
+                columbusModel.visible = true; lucayanModel.visible = true; flagPole.visible = true; flagMesh.visible = true; 
+            };
+
+            document.getElementById('btn-sail').addEventListener('click', (e) => { e.preventDefault(); triggerSail(); });
+            document.getElementById('btn-land').addEventListener('click', (e) => { e.preventDefault(); triggerLand(); });
+
+            renderer.xr.addEventListener('sessionstart', () => {
+                if (currentScene === 1) triggerSail();
+                document.getElementById('scene-map').style.display = 'none';
+                document.getElementById('scene-ui').style.display = 'none';
+                camera.rotation.set(0, 0, 0);
+
+                // FIX: Forces the split-screen to recalculate its aspect ratio AFTER the phone rotates
+                setTimeout(() => {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }, 200);
+            });
+
+            const handleVRClick = (e) => { if (renderer.xr.isPresenting && currentScene === 2) triggerLand(); };
+            window.addEventListener('pointerdown', handleVRClick);
+            window.addEventListener('touchstart', handleVRClick);
+
+            // The native WebXR "tap" event, which is required by many mobile headsets
+            const controller = renderer.xr.getController(0);
+            controller.addEventListener('select', handleVRClick);
+            scene.add(controller);
+
+            window.addEventListener('resize', onWindowResize);
+            renderer.setAnimationLoop(animate);
+        }
+
+        function createSpanishFlag() {
+            flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 15), new THREE.MeshStandardMaterial({color: 0x8b5a2b}));
+            flagPole.position.set(-20, 13, 80); flagPole.visible = false; islandGroup.add(flagPole);
+            const fCanvas = document.createElement('canvas'); fCanvas.width = 256; fCanvas.height = 128;
+            const fCtx = fCanvas.getContext('2d'); fCtx.fillStyle = '#ffffff'; fCtx.fillRect(0,0,256,128); fCtx.fillStyle = '#cc0000'; fCtx.fillRect(110,0,36,128); fCtx.fillRect(0,46,256,36);
+            flagMesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 5, 10, 10), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(fCanvas), side: THREE.DoubleSide }));
+            flagMesh.position.set(-16, 18, 80); flagMesh.visible = false; islandGroup.add(flagMesh);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            const time = clock.getElapsedTime();
+            if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
+            if (particles) { particles.rotation.y = time * 0.05; particles.position.z += 0.2; if (particles.position.z > 100) particles.position.z = -200; }
+            if (flagMesh && flagMesh.visible) {
+                const pos = flagMesh.geometry.attributes.position;
+                for(let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 1.5 - time * 5) * 0.8);
+                flagMesh.geometry.attributes.position.needsUpdate = true;
+            }
+
+            if (currentScene === 2) {
+                const hb = Math.sin(time * 1.5) * 3.0; cameraTarget.set(0, 18 + hb, 45); lookAtTarget.set(0, 5 + hb, -20);
+                if (islandGroup.position.z < -80) islandGroup.position.z += shipSpeed;
+                if (mainShip) { mainShip.position.y = hb - 2; mainShip.rotation.x = Math.sin(time * 1.2) * 0.12; mainShip.rotation.z = Math.sin(time * 0.8) * 0.1; }
+                if (companionShip) { companionShip.position.y = Math.sin(time * 1.5 + 1) * 3.0 - 2; companionShip.rotation.x = Math.sin(time * 1.2 + 1) * 0.12; companionShip.rotation.z = Math.sin(time * 0.8 + 1) * 0.1 - 0.05; }
+            } else if (currentScene === 3) {
+                const ba = Math.sin(time * 1.5) * 1.5; cameraTarget.set(0, 12 + ba, 25); lookAtTarget.set(0, 8 + ba, 80);
+                if (mainShip) { mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2; mainShip.rotation.x = 0.01; }
+            }
+
+            cameraRig.position.lerp(cameraTarget, 0.02);
+            if (!renderer.xr.isPresenting) {
+                currentLookAt.lerp(lookAtTarget, 0.02);
+                camera.lookAt(currentLookAt);
+            } else {
+                camera.rotation.set(0, 0, 0); 
+            }
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
 
     <script type="importmap">
         {
