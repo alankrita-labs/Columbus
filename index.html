@@ -13,6 +13,7 @@
         #loading { background: #111; color: #d4af37; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 20px; z-index: 100; transition: opacity 1s; text-align: center; padding: 20px; }
         #loading-text { margin-top: 15px; font-size: 16px; color: #aaa; }
         
+        /* Scene 1: Map overlay */
         #scene-map { 
             background-color: #050402;
             background-image: url('map.png');
@@ -23,12 +24,12 @@
             display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 80px; transition: opacity 1.5s; 
         }
         
+        /* Scene 2 & 3 UI overlays */
         #scene-ui { z-index: 40; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 50px; opacity: 0; transition: opacity 1s; }
         
         /* Mobile-friendly buttons */
         .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 30px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); border-radius: 8px; -webkit-tap-highlight-color: transparent; }
         .btn:active { background: #ffdf73; transform: scale(0.95); }
-        .narration { background: rgba(0,0,0,0.8); padding: 15px 25px; border: 1px solid #d4af37; border-radius: 5px; margin-bottom: 20px; text-align: center; width: 85%; max-width: 600px; font-size: 16px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
         
         #three-container { z-index: 10; }
     </style>
@@ -88,7 +89,7 @@
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
             camera.position.copy(cameraTarget);
 
-            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "default" }); // Antialias off for mobile performance
+            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "default" }); 
             
             // MOBILE FIX: Cap pixel ratio at 1.5 to prevent memory crashes on Retina displays
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
@@ -106,9 +107,9 @@
             sunLight.position.set(200, 150, 100);
             scene.add(sunLight);
 
-            // --- SPECIAL EFFECTS ---
+            // --- SPECIAL EFFECTS: Glowing Orbs ---
             const particleGeo = new THREE.BufferGeometry();
-            const particleCount = 200; // Reduced for mobile CPU
+            const particleCount = 200; // Reduced for mobile CPU, keeping it subtle
             const posArray = new Float32Array(particleCount * 3);
             for(let i = 0; i < particleCount * 3; i++) {
                 posArray[i] = (Math.random() - 0.5) * 400;
@@ -204,7 +205,8 @@
             loader.load('columbus.glb', function (gltf) {
                 columbusModel = gltf.scene;
                 columbusModel.scale.set(5, 5, 5); 
-                columbusModel.position.set(-15, 16, 80); 
+                // Planted firmly on the sand based on previous adjustments
+                columbusModel.position.set(-15, 6.5, 80); 
                 columbusModel.visible = false; 
                 islandGroup.add(columbusModel);
             });
@@ -212,8 +214,9 @@
             loader.load('lucayan.glb', function (gltf) {
                 lucayanModel = gltf.scene;
                 lucayanModel.scale.set(5, 5, 5); 
-                lucayanModel.position.set(15, 16, 70); 
-                lucayanModel.lookAt(-15, 16, 80); 
+                // Planted firmly on the sand
+                lucayanModel.position.set(15, 6.5, 70); 
+                lucayanModel.lookAt(-15, 6.5, 80); 
                 lucayanModel.visible = false; 
                 islandGroup.add(lucayanModel);
             });
@@ -222,11 +225,10 @@
 
             window.addEventListener('resize', onWindowResize);
             
-            // --- UI INTERACTIONS (Mobile Fixed) ---
+            // --- UI INTERACTIONS ---
             const sailBtn = document.getElementById('btn-sail');
             const landBtn = document.getElementById('btn-land');
 
-            // Using both click and touchstart to ensure mobile responsiveness
             const triggerSail = (e) => {
                 e.preventDefault();
                 document.getElementById('scene-map').style.opacity = '0';
@@ -261,7 +263,8 @@
             const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 15);
             const poleMat = new THREE.MeshStandardMaterial({color: 0x8b5a2b});
             flagPole = new THREE.Mesh(poleGeo, poleMat);
-            flagPole.position.set(-20, 23, 80); 
+            // Lowered pole base to match characters
+            flagPole.position.set(-20, 13, 80); 
             flagPole.visible = false; 
             islandGroup.add(flagPole);
 
@@ -277,7 +280,8 @@
             const flagGeo = new THREE.PlaneGeometry(8, 5, 10, 10);
             const flagMat = new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide });
             flagMesh = new THREE.Mesh(flagGeo, flagMat);
-            flagMesh.position.set(-16, 28, 80); 
+            // Lowered flag cloth
+            flagMesh.position.set(-16, 18, 80); 
             flagMesh.visible = false; 
             islandGroup.add(flagMesh);
         }
@@ -322,8 +326,9 @@
 
             if (currentScene === 3) {
                 const bobbingAmount = Math.sin(time * 1.5) * 1.5;
-                cameraTarget.set(0, 20 + bobbingAmount, 25);
-                lookAtTarget.set(0, 16 + bobbingAmount, 80);
+                // CAMERA ADJUST: Adjusted to frame the newly lowered characters perfectly
+                cameraTarget.set(0, 12 + bobbingAmount, 25);
+                lookAtTarget.set(0, 8 + bobbingAmount, 80);
 
                 if (mainShip) {
                     mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2;
