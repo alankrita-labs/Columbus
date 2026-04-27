@@ -2,18 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- STRICT MOBILE VIEWPORT: Prevents zooming and scrolling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Photorealistic Voyage Simulation</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Georgia', serif; color: #fff; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Georgia', serif; color: #fff; touch-action: none; }
         
-        /* Fullscreen containers */
         .layer { position: absolute; inset: 0; width: 100%; height: 100%; }
         
-        /* Loading Screen */
-        #loading { background: #111; color: #d4af37; display: flex; justify-content: center; align-items: center; font-size: 24px; z-index: 100; transition: opacity 1s; }
+        #loading { background: #111; color: #d4af37; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 20px; z-index: 100; transition: opacity 1s; text-align: center; padding: 20px; }
+        #loading-text { margin-top: 15px; font-size: 16px; color: #aaa; }
         
-        /* Scene 1: Map overlay */
         #scene-map { 
             background-color: #050402;
             background-image: url('map.png');
@@ -24,34 +23,32 @@
             display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 80px; transition: opacity 1.5s; 
         }
         
-        /* Scene 2 & 3 UI overlays */
         #scene-ui { z-index: 40; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 50px; opacity: 0; transition: opacity 1s; }
         
-        /* Buttons and Text */
-        .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 40px; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 50px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); }
-        .btn:hover { background: linear-gradient(to bottom, #ffdf73, #d4af37); transform: translateY(-2px); }
-        .narration { background: rgba(0,0,0,0.8); padding: 20px 40px; border: 1px solid #d4af37; border-radius: 5px; margin-bottom: 20px; text-align: center; max-width: 800px; font-size: 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        /* Mobile-friendly buttons */
+        .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 30px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); border-radius: 8px; -webkit-tap-highlight-color: transparent; }
+        .btn:active { background: #ffdf73; transform: scale(0.95); }
+        .narration { background: rgba(0,0,0,0.8); padding: 15px 25px; border: 1px solid #d4af37; border-radius: 5px; margin-bottom: 20px; text-align: center; width: 85%; max-width: 600px; font-size: 16px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
         
-        /* 3D Canvas */
         #three-container { z-index: 10; }
     </style>
 </head>
 <body>
-    <div id="loading" class="layer">Loading High-Fidelity Assets (0%)...</div>
+    <div id="loading" class="layer">
+        <div>Loading High-Fidelity Assets...</div>
+        <div id="loading-text">0%</div>
+    </div>
     
-    <!-- Scene 1: The 2D Map -->
     <div id="scene-map" class="layer">
         <div class="narration">August 1492: Leaving the known world behind. Crossing the vast, terrifying ocean.</div>
         <button id="btn-sail" class="btn">Set Sail (Enter 3D)</button>
     </div>
 
-    <!-- Scene 2 & 3 UI Overlay -->
     <div id="scene-ui" class="layer">
         <div id="ui-text" class="narration">Sailing the deep Atlantic... The thick mist slowly clears as land approaches.</div>
-        <button id="btn-land" class="btn">Make Landfall (Meet the Lucayans)</button>
+        <button id="btn-land" class="btn">Make Landfall</button>
     </div>
 
-    <!-- 3D Environment -->
     <div id="three-container" class="layer"></div>
 
     <script type="importmap">
@@ -74,12 +71,9 @@
         let islandGroup, islandModel, columbusModel, lucayanModel, flagMesh, flagPole; 
         
         const clock = new THREE.Clock();
-        
-        // State management
         let currentScene = 1; 
         let shipSpeed = 1.2;
 
-        // Camera Tracking Variables
         let cameraTarget = new THREE.Vector3(0, 20, 50);
         let lookAtTarget = new THREE.Vector3(0, 5, 0);
         let currentLookAt = new THREE.Vector3(0, 5, 0);
@@ -90,16 +84,16 @@
         function init() {
             const container = document.getElementById('three-container');
 
-            // 1. Scene & Camera Setup
             scene = new THREE.Scene();
-            // Reverted to standard fog density
             scene.fog = new THREE.FogExp2(0x1a2b3c, 0.0004); 
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
             camera.position.copy(cameraTarget);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "default" }); // Antialias off for mobile performance
+            
+            // MOBILE FIX: Cap pixel ratio at 1.5 to prevent memory crashes on Retina displays
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.toneMapping = THREE.ACESFilmicToneMapping; 
             renderer.toneMappingExposure = 1.1;
@@ -108,37 +102,34 @@
             // --- LIGHTING ---
             const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); 
             scene.add(ambientLight);
-
             const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
             scene.add(hemiLight);
-
             const sunLight = new THREE.DirectionalLight(0xffdfb3, 2.5);
             sunLight.position.set(200, 150, 100);
             scene.add(sunLight);
 
-            // --- SPECIAL EFFECTS: Magical Ocean Particles (Soft & Glowing) ---
+            // --- SPECIAL EFFECTS ---
             const particleGeo = new THREE.BufferGeometry();
-            const particleCount = 300; 
+            const particleCount = 200; // Reduced for mobile CPU
             const posArray = new Float32Array(particleCount * 3);
             for(let i = 0; i < particleCount * 3; i++) {
-                posArray[i] = (Math.random() - 0.5) * 400; // Spread around the scene
+                posArray[i] = (Math.random() - 0.5) * 400;
             }
             particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
             
-            // Create a soft, circular glowing texture dynamically
             const particleCanvas = document.createElement('canvas');
             particleCanvas.width = 32; particleCanvas.height = 32;
             const pCtx = particleCanvas.getContext('2d');
             const pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
             pGrad.addColorStop(0, 'rgba(255,255,255,1)');
-            pGrad.addColorStop(0.2, 'rgba(255,204,68,1)'); // Golden glow
+            pGrad.addColorStop(0.2, 'rgba(255,204,68,1)');
             pGrad.addColorStop(1, 'rgba(0,0,0,0)');
             pCtx.fillStyle = pGrad;
             pCtx.fillRect(0,0,32,32);
             const particleTexture = new THREE.CanvasTexture(particleCanvas);
 
             const particleMat = new THREE.PointsMaterial({
-                size: 1.5,
+                size: 2.0,
                 map: particleTexture,
                 transparent: true,
                 opacity: 0.7,
@@ -148,7 +139,6 @@
             particles = new THREE.Points(particleGeo, particleMat);
             scene.add(particles);
 
-            // --- MASTER GROUP FOR ISLAND & CHARACTERS ---
             islandGroup = new THREE.Group();
             islandGroup.position.set(0, 0, -3000); 
             scene.add(islandGroup);
@@ -156,15 +146,15 @@
             // --- LOADING MANAGER ---
             const manager = new THREE.LoadingManager();
             manager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
-                document.getElementById('loading').innerText = `Loading Assets (${Math.round((itemsLoaded / itemsTotal) * 100)}%)...`;
+                const percent = Math.round((itemsLoaded / itemsTotal) * 100);
+                document.getElementById('loading-text').innerText = `${percent}% (${url.split('/').pop()})`;
             };
             manager.onLoad = function () {
                 document.getElementById('loading').style.opacity = '0';
                 setTimeout(() => document.getElementById('loading').remove(), 1000);
             };
             manager.onError = function ( url ) {
-                console.error('Error loading:', url);
-                document.getElementById('loading').innerText = "Asset missing. Ensure all files are in the same folder.";
+                document.getElementById('loading-text').innerText = `Error loading: ${url.split('/').pop()}`;
             };
 
             // 2. Load HDRI
@@ -175,11 +165,11 @@
                 scene.fog.color.setHex(0x8a5a44); 
             });
 
-            // 3. Realistic Water Shader
+            // 3. Water
             const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
             water = new Water(waterGeometry, {
-                textureWidth: 512,
-                textureHeight: 512,
+                textureWidth: 256, // Halved for mobile performance
+                textureHeight: 256,
                 waterNormals: new THREE.TextureLoader(manager).load('waternormals.jpg', function (texture) {
                     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
                 }),
@@ -194,21 +184,18 @@
             // 4. Load Models
             const loader = new GLTFLoader(manager);
             
-            // A. Load Main Ship & Companion Ship
             loader.load('ship.glb', function (gltf) {
                 mainShip = gltf.scene;
                 mainShip.scale.set(5, 5, 5); 
                 mainShip.position.set(0, -2, 0); 
                 scene.add(mainShip);
 
-                // Companion ship - Placed firmly into the foreground left
                 companionShip = mainShip.clone();
-                companionShip.position.set(-15, -2, 5); 
+                companionShip.position.set(-25, -2, -15); 
                 companionShip.rotation.y = 0.05; 
                 scene.add(companionShip);
             });
 
-            // B. Load Island
             loader.load('island.glb', function (gltf) {
                 islandModel = gltf.scene;
                 islandModel.scale.set(50, 50, 50); 
@@ -216,64 +203,69 @@
                 islandGroup.add(islandModel);
             });
 
-            // C. Load Columbus
             loader.load('columbus.glb', function (gltf) {
                 columbusModel = gltf.scene;
                 columbusModel.scale.set(5, 5, 5); 
-                columbusModel.position.set(-15, 12, 80); 
-                columbusModel.visible = false; // Hidden until Scene 3
+                columbusModel.position.set(-15, 35, 80); 
+                columbusModel.visible = false; 
                 islandGroup.add(columbusModel);
             });
 
-            // D. Load Lucayan
             loader.load('lucayan.glb', function (gltf) {
                 lucayanModel = gltf.scene;
                 lucayanModel.scale.set(5, 5, 5); 
-                lucayanModel.position.set(15, 12, 70); 
-                lucayanModel.lookAt(-15, 12, 80); // Look at Columbus
-                lucayanModel.visible = false; // Hidden until Scene 3
+                lucayanModel.position.set(15, 35, 70); 
+                lucayanModel.lookAt(-15, 35, 80); 
+                lucayanModel.visible = false; 
                 islandGroup.add(lucayanModel);
             });
 
-            // E. Create the Spanish Flag & Pole
             createSpanishFlag();
 
             window.addEventListener('resize', onWindowResize);
             
-            // --- UI INTERACTIONS ---
-            document.getElementById('btn-sail').addEventListener('click', () => {
+            // --- UI INTERACTIONS (Mobile Fixed) ---
+            const sailBtn = document.getElementById('btn-sail');
+            const landBtn = document.getElementById('btn-land');
+
+            // Using both click and touchstart to ensure mobile responsiveness
+            const triggerSail = (e) => {
+                e.preventDefault();
                 document.getElementById('scene-map').style.opacity = '0';
                 setTimeout(() => {
                     document.getElementById('scene-map').style.display = 'none';
                     document.getElementById('scene-ui').style.opacity = '1';
                     currentScene = 2;
                 }, 1500);
-            });
+            };
 
-            document.getElementById('btn-land').addEventListener('click', () => {
+            const triggerLand = (e) => {
+                e.preventDefault();
                 currentScene = 3;
                 document.getElementById('btn-land').style.display = 'none';
                 document.getElementById('ui-text').innerText = "October 12, 1492: Columbus makes landfall and meets the Lucayans.";
 
-                // Snap the island into place
                 islandGroup.position.z = -80;
                 
-                // Unhide the characters and flag
                 if (columbusModel) columbusModel.visible = true;
                 if (lucayanModel) lucayanModel.visible = true;
                 if (flagPole) flagPole.visible = true;
                 if (flagMesh) flagMesh.visible = true;
-            });
+            };
+
+            sailBtn.addEventListener('click', triggerSail);
+            sailBtn.addEventListener('touchstart', triggerSail);
             
-            
+            landBtn.addEventListener('click', triggerLand);
+            landBtn.addEventListener('touchstart', triggerLand);
         }
 
         function createSpanishFlag() {
             const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 15);
             const poleMat = new THREE.MeshStandardMaterial({color: 0x8b5a2b});
             flagPole = new THREE.Mesh(poleGeo, poleMat);
-            flagPole.position.set(-20, 19, 80); 
-            flagPole.visible = false; // Hidden until Scene 3
+            flagPole.position.set(-20, 42, 80); 
+            flagPole.visible = false; 
             islandGroup.add(flagPole);
 
             const flagTexCanvas = document.createElement('canvas');
@@ -288,8 +280,8 @@
             const flagGeo = new THREE.PlaneGeometry(8, 5, 10, 10);
             const flagMat = new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide });
             flagMesh = new THREE.Mesh(flagGeo, flagMat);
-            flagMesh.position.set(-16, 24, 80); 
-            flagMesh.visible = false; // Hidden until Scene 3
+            flagMesh.position.set(-16, 47, 80); 
+            flagMesh.visible = false; 
             islandGroup.add(flagMesh);
         }
 
@@ -305,14 +297,12 @@
 
             if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
 
-            // Animate Magic Particles
             if (particles) {
                 particles.rotation.y = time * 0.05;
                 particles.position.z += 0.2;
                 if (particles.position.z > 100) particles.position.z = -200; 
             }
 
-            // Animate Waving Flag
             if (flagMesh && flagMesh.visible) {
                 const pos = flagMesh.geometry.attributes.position;
                 for(let i = 0; i < pos.count; i++) {
@@ -323,9 +313,7 @@
                 flagMesh.geometry.attributes.position.needsUpdate = true;
             }
 
-            // --- SCENE 2 LOGIC (Sailing) ---
             if (currentScene === 2) {
-                // CAMERA BOBBING: Camera sways and bobs with the exact rhythm of the ship!
                 const bobbingAmount = Math.sin(time * 1.5) * 1.5;
                 cameraTarget.set(0, 18 + bobbingAmount, 45);
                 lookAtTarget.set(0, 5 + bobbingAmount, -20);
@@ -335,9 +323,7 @@
                 }
             }
 
-            // --- SCENE 3 LOGIC (Landing & Cinematic Camera) ---
             if (currentScene === 3) {
-                // Move the camera slightly forward and up so we look right at the people
                 const bobbingAmount = Math.sin(time * 1.5) * 1.5;
                 cameraTarget.set(0, 26 + bobbingAmount, 25);
                 lookAtTarget.set(0, 14 + bobbingAmount, 0);
@@ -354,7 +340,6 @@
                 }
             }
 
-            // --- SHIP BOBBING (Active mainly in Scene 2) ---
             if (currentScene === 2) {
                 if (mainShip) {
                     mainShip.position.y = Math.sin(time * 1.5) * 1.5 - 2;
@@ -368,7 +353,6 @@
                 }
             }
 
-            // --- SMOOTH CAMERA MOVEMENT ---
             camera.position.lerp(cameraTarget, 0.02);
             currentLookAt.lerp(lookAtTarget, 0.02);
             camera.lookAt(currentLookAt);
@@ -376,6 +360,5 @@
             renderer.render(scene, camera);
         }
     </script>
-    <script src="https://unpkg.com/three@0.150.1/examples/jsm/webxr/VRButton.js"></script>
 </body>
 </html>
