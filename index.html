@@ -2,17 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Photorealistic Voyage Simulation</title>
-    <!-- WEBXR POLYFILL: Forces VR support on iPhones and unsupported Androids -->
     <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Georgia', serif; color: #fff; touch-action: none; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Georgia', serif; color: #fff; touch-action: none; position: fixed; width: 100%; height: 100%; }
+        canvas { display: block; width: 100vw !important; height: 100vh !important; outline: none; }
         .layer { position: absolute; inset: 0; width: 100%; height: 100%; }
+        
         #loading { background: #111; color: #d4af37; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 20px; z-index: 100; transition: opacity 1s; text-align: center; padding: 20px; }
         #loading-text { margin-top: 15px; font-size: 16px; color: #aaa; }
+        
         #scene-map { background-color: #050402; background-image: url('map.png'); background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 80px; transition: opacity 1.5s; }
         #scene-ui { z-index: 40; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; transition: opacity 1s; }
+        
         .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 30px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); border-radius: 8px; -webkit-tap-highlight-color: transparent; }
         .btn:active { background: #ffdf73; transform: scale(0.95); }
         .vr-warning { color: #ffcc44; font-size: 14px; font-weight: bold; margin-top: 5px; text-align: center; padding: 0 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
@@ -28,7 +31,6 @@
     <div id="scene-map" class="layer">
         <button id="btn-sail" class="btn">Set Sail (Standard 2D)</button>
         <p class="vr-warning">⚠️ FOR VR: Please rotate your phone sideways (Landscape) BEFORE tapping ENTER VR!</p>
-        <!-- The WebXR polyfill will inject the VR button directly at the bottom of the screen -->
     </div>
 
     <div id="scene-ui" class="layer">
@@ -53,9 +55,13 @@
         import { Water } from 'three/addons/objects/Water.js';
         import { VRButton } from 'three/addons/webxr/VRButton.js';
 
-        // Initialize WebXR Polyfill for iOS / Mobile support
+        // Initialize WebXR Polyfill
         if (window.WebXRPolyfill) {
-            new window.WebXRPolyfill();
+            new window.WebXRPolyfill({
+                cardboardConfig: {
+                    CARDBOARD_UI_DISABLED: true
+                }
+            });
         }
 
         let scene, camera, renderer, water, particles, cameraRig;
@@ -78,27 +84,37 @@
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
             
-            // Camera Rig for VR movement
             cameraRig = new THREE.Group();
             cameraRig.position.copy(cameraTarget);
             cameraRig.add(camera);
             scene.add(cameraRig);
 
             renderer = new THREE.WebGLRenderer({ antialias: false }); 
-            
-            // CRASH FIX: Force pixel ratio to 1.0 on mobile to prevent GPU Out-of-Memory crashes in VR
             const pixelRatio = window.innerWidth < 800 ? 1.0 : Math.min(window.devicePixelRatio, 1.5);
             renderer.setPixelRatio(pixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.toneMapping = THREE.ACESFilmicToneMapping; 
             renderer.toneMappingExposure = 1.1;
-            
-            // Enable WebXR
             renderer.xr.enabled = true;
-            document.body.appendChild(VRButton.createButton(renderer));
+            
+            // Create VR Button
+            const vrButton = VRButton.createButton(renderer);
+            document.body.appendChild(vrButton);
+
+            // FORCE FULLSCREEN ON VR START
+            vrButton.addEventListener('click', () => {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            });
             
             container.appendChild(renderer.domElement);
 
+            // Lighting & Particles (Omitted for brevity, kept exactly the same as previous)
             const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); 
             scene.add(ambientLight);
             const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
@@ -107,7 +123,6 @@
             sunLight.position.set(200, 150, 100);
             scene.add(sunLight);
 
-            // Particles
             const particleGeo = new THREE.BufferGeometry();
             const posArray = new Float32Array(600);
             for(let i = 0; i < 600; i++) posArray[i] = (Math.random() - 0.5) * 400;
@@ -152,7 +167,6 @@
 
             createSpanishFlag();
 
-            // --- NAVIGATION LOGIC ---
             const triggerSail = () => { 
                 currentScene = 2; 
                 document.getElementById('scene-map').style.display = 'none'; 
@@ -166,40 +180,20 @@
                 columbusModel.visible = true; lucayanModel.visible = true; flagPole.visible = true; flagMesh.visible = true; 
             };
 
-            // BUTTON: Standard 2D 
             document.getElementById('btn-sail').addEventListener('click', (e) => { e.preventDefault(); triggerSail(); });
-            document.getElementById('btn-sail').addEventListener('touchstart', (e) => { e.preventDefault(); triggerSail(); });
-            
-            // BUTTON: Make Landfall (2D Mode)
             document.getElementById('btn-land').addEventListener('click', (e) => { e.preventDefault(); triggerLand(); });
-            document.getElementById('btn-land').addEventListener('touchstart', (e) => { e.preventDefault(); triggerLand(); });
 
-            // VR SESSION LOGIC: Auto-hide map and jump to ship when VR starts
             renderer.xr.addEventListener('sessionstart', () => {
                 if (currentScene === 1) triggerSail();
                 document.getElementById('scene-map').style.display = 'none';
                 document.getElementById('scene-ui').style.display = 'none';
-                
-                // CRITICAL TILT FIX: This destroys any residual 2D pitch/tilt applied to the camera before entering VR
                 camera.rotation.set(0, 0, 0);
-                camera.quaternion.identity();
             });
 
-            // VR CLICK: Tapping the screen/Cardboard button triggers landfall
-            const controller = renderer.xr.getController(0);
-            controller.addEventListener('select', () => { 
-                if (currentScene === 2) triggerLand(); 
-            });
-            scene.add(controller);
+            const handleVRClick = (e) => { if (renderer.xr.isPresenting && currentScene === 2) triggerLand(); };
+            window.addEventListener('pointerdown', handleVRClick);
 
             window.addEventListener('resize', onWindowResize);
-            
-            // TILT FIX 2: Recalibrate the Polyfill rendering if the user rotates their phone
-            window.addEventListener('orientationchange', () => {
-                setTimeout(onWindowResize, 250); // Small delay allows the browser UI to catch up
-            });
-            
-            // IMPORTANT: setAnimationLoop must be used for WebXR
             renderer.setAnimationLoop(animate);
         }
 
@@ -220,7 +214,6 @@
 
         function animate() {
             const time = clock.getElapsedTime();
-            
             if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
             if (particles) { particles.rotation.y = time * 0.05; particles.position.z += 0.2; if (particles.position.z > 100) particles.position.z = -200; }
             if (flagMesh && flagMesh.visible) {
@@ -239,19 +232,13 @@
                 if (mainShip) { mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2; mainShip.rotation.x = 0.01; }
             }
 
-            // Move the camera RIG (the "Cart" we are sitting in)
             cameraRig.position.lerp(cameraTarget, 0.02);
-            
-            // Only force the camera to look forward if NOT in VR mode.
-            // If in VR mode, the WebXR manager handles the camera rotation automatically based on your phone's gyroscope!
             if (!renderer.xr.isPresenting) {
                 currentLookAt.lerp(lookAtTarget, 0.02);
                 camera.lookAt(currentLookAt);
             } else {
-                // TILT FIX 3: Actively zeroes the base camera rotation while in VR to prevent polyfill drift
                 camera.rotation.set(0, 0, 0); 
             }
-
             renderer.render(scene, camera);
         }
     </script>
