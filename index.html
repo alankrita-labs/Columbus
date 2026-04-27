@@ -15,7 +15,7 @@
         
         .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 30px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); border-radius: 8px; -webkit-tap-highlight-color: transparent; }
         .btn:active { background: #ffdf73; transform: scale(0.95); }
-        .btn-vr { background: linear-gradient(to bottom, #ffdf73, #c59000); } /* Brighter button for VR */
+        .btn-vr { background: linear-gradient(to bottom, #ffdf73, #c59000); } 
         
         #vr-instructions { display: none; font-size: 24px; font-weight: bold; color: #d4af37; background: rgba(0,0,0,0.8); padding: 20px; border-radius: 10px; border: 2px solid #d4af37; text-align: center; }
         #three-container { z-index: 10; }
@@ -53,15 +53,14 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
         import { Water } from 'three/addons/objects/Water.js';
-        // UNIVERSAL VR FALLBACK IMPORTS (Bypasses WebXR)
         import { StereoEffect } from 'three/addons/effects/StereoEffect.js';
-        import { DeviceOrientationControls } from 'three/addons/controls/DeviceOrientationControls.js';
+        // (Removed the deprecated DeviceOrientationControls import that caused the crash)
 
         let scene, camera, renderer, water, particles, cameraRig;
         let mainShip, companionShip, islandGroup, islandModel, columbusModel, lucayanModel, flagMesh, flagPole; 
         
         // VR State Variables
-        let effect, controls;
+        let effect;
         let isVRMode = false;
 
         const clock = new THREE.Clock();
@@ -93,7 +92,7 @@
             renderer.toneMappingExposure = 1.1;
             container.appendChild(renderer.domElement);
 
-            // --- UNIVERSAL VR SETUP ---
+            // --- UNIVERSAL VR SETUP (Stereo Lens Effect) ---
             effect = new StereoEffect(renderer);
             effect.setSize(window.innerWidth, window.innerHeight);
 
@@ -172,7 +171,7 @@
             document.getElementById('btn-land').addEventListener('click', (e) => { e.preventDefault(); triggerLand(); });
             document.getElementById('btn-land').addEventListener('touchstart', (e) => { e.preventDefault(); triggerLand(); });
 
-            // BUTTON: ENTER VR (Bypasses WebXR)
+            // BUTTON: ENTER VR (Gyroscopic setup directly in-script to prevent crashes)
             const enterVRBtn = document.getElementById('btn-vr');
             const startVR = (e) => {
                 if(e) e.preventDefault();
@@ -183,7 +182,7 @@
                         else alert("Gyroscope permission is required for VR.");
                     }).catch(console.error);
                 } else {
-                    enableVRMode(); // Android or older iOS
+                    enableVRMode(); 
                 }
             };
             enterVRBtn.addEventListener('click', startVR);
@@ -191,7 +190,33 @@
 
             function enableVRMode() {
                 isVRMode = true;
-                controls = new DeviceOrientationControls(camera); // Ties camera rotation to phone gyro
+                
+                // --- INLINED GYROSCOPE TRACKING LOGIC ---
+                const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+                const q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+                const zee = new THREE.Vector3(0, 0, 1);
+                const q0 = new THREE.Quaternion();
+
+                window.addEventListener('deviceorientation', (event) => {
+                    if (!isVRMode) return;
+                    let alpha = event.alpha ? THREE.MathUtils.degToRad(event.alpha) : 0;
+                    let beta = event.beta ? THREE.MathUtils.degToRad(event.beta) : 0;
+                    let gamma = event.gamma ? THREE.MathUtils.degToRad(event.gamma) : 0;
+                    
+                    let orientAngle = 0;
+                    if (window.screen && window.screen.orientation && window.screen.orientation.angle !== undefined) {
+                        orientAngle = window.screen.orientation.angle;
+                    } else {
+                        orientAngle = window.orientation || 0;
+                    }
+                    let orient = THREE.MathUtils.degToRad(orientAngle);
+
+                    euler.set(beta, alpha, -gamma, 'YXZ');
+                    camera.quaternion.setFromEuler(euler);
+                    camera.quaternion.multiply(q1);
+                    camera.quaternion.multiply(q0.setFromAxisAngle(zee, -orient));
+                });
+                // ----------------------------------------
                 
                 document.getElementById('scene-map').style.display = 'none'; 
                 document.getElementById('scene-ui').style.opacity = '1';
@@ -260,8 +285,7 @@
             cameraRig.position.lerp(cameraTarget, 0.02);
             
             if (isVRMode) {
-                // VR MODE: Gyroscope handles looking around, StereoEffect handles splitting the screen
-                if (controls) controls.update();
+                // VR MODE: StereoEffect handles splitting the screen, custom logic handles gyro
                 effect.render(scene, camera);
             } else {
                 // 2D MODE: Code forces camera to look forward, standard renderer handles drawing
