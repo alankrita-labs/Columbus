@@ -40,12 +40,10 @@
     </div>
     
     <div id="scene-map" class="layer">
-        <div class="narration">August 1492: Leaving the known world behind. Crossing the vast, terrifying ocean.</div>
         <button id="btn-sail" class="btn">Set Sail (Enter 3D)</button>
     </div>
 
     <div id="scene-ui" class="layer">
-        <div id="ui-text" class="narration">Sailing the deep Atlantic... The thick mist slowly clears as land approaches.</div>
         <button id="btn-land" class="btn">Make Landfall</button>
     </div>
 
@@ -243,7 +241,6 @@
                 e.preventDefault();
                 currentScene = 3;
                 document.getElementById('btn-land').style.display = 'none';
-                document.getElementById('ui-text').innerText = "October 12, 1492: Columbus makes landfall and meets the Lucayans.";
 
                 islandGroup.position.z = -80;
                 
