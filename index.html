@@ -13,8 +13,9 @@
         #loading-text { margin-top: 15px; font-size: 16px; color: #aaa; }
         #scene-map { background-color: #050402; background-image: url('map.png'); background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 80px; transition: opacity 1.5s; }
         #scene-ui { z-index: 40; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; transition: opacity 1s; }
-        .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 30px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); border-radius: 8px; -webkit-tap-highlight-color: transparent; }
+        .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 30px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); border-radius: 8px; -webkit-tap-highlight-color: transparent; }
         .btn:active { background: #ffdf73; transform: scale(0.95); }
+        .vr-warning { color: #ffcc44; font-size: 14px; font-weight: bold; margin-top: 5px; text-align: center; padding: 0 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
         #three-container { z-index: 10; }
     </style>
 </head>
@@ -26,6 +27,7 @@
     
     <div id="scene-map" class="layer">
         <button id="btn-sail" class="btn">Set Sail (Standard 2D)</button>
+        <p class="vr-warning">⚠️ FOR VR: Please rotate your phone sideways (Landscape) BEFORE tapping ENTER VR!</p>
         <!-- The WebXR polyfill will inject the VR button directly at the bottom of the screen -->
     </div>
 
@@ -177,6 +179,10 @@
                 if (currentScene === 1) triggerSail();
                 document.getElementById('scene-map').style.display = 'none';
                 document.getElementById('scene-ui').style.display = 'none';
+                
+                // CRITICAL TILT FIX: This destroys any residual 2D pitch/tilt applied to the camera before entering VR
+                camera.rotation.set(0, 0, 0);
+                camera.quaternion.identity();
             });
 
             // VR CLICK: Tapping the screen/Cardboard button triggers landfall
@@ -187,6 +193,11 @@
             scene.add(controller);
 
             window.addEventListener('resize', onWindowResize);
+            
+            // TILT FIX 2: Recalibrate the Polyfill rendering if the user rotates their phone
+            window.addEventListener('orientationchange', () => {
+                setTimeout(onWindowResize, 250); // Small delay allows the browser UI to catch up
+            });
             
             // IMPORTANT: setAnimationLoop must be used for WebXR
             renderer.setAnimationLoop(animate);
@@ -236,6 +247,9 @@
             if (!renderer.xr.isPresenting) {
                 currentLookAt.lerp(lookAtTarget, 0.02);
                 camera.lookAt(currentLookAt);
+            } else {
+                // TILT FIX 3: Actively zeroes the base camera rotation while in VR to prevent polyfill drift
+                camera.rotation.set(0, 0, 0); 
             }
 
             renderer.render(scene, camera);
