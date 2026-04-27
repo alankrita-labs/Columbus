@@ -64,11 +64,14 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
         import { Water } from 'three/addons/objects/Water.js';
+        import { VRButton } from 'three/addons/webxr/VRButton.js'; // NEW: VR Support
 
         let scene, camera, renderer, water, particles;
         let mainShip, companionShip;
         let islandGroup, islandModel, columbusModel, lucayanModel, flagMesh, flagPole; 
         
+        let cameraRig; // NEW: Holds the camera for VR
+
         const clock = new THREE.Clock();
         let currentScene = 1; 
         let shipSpeed = 1.2;
@@ -78,7 +81,6 @@
         let currentLookAt = new THREE.Vector3(0, 5, 0);
 
         init();
-        animate();
 
         function init() {
             const container = document.getElementById('three-container');
@@ -87,15 +89,26 @@
             scene.fog = new THREE.FogExp2(0x1a2b3c, 0.0004); 
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
-            camera.position.copy(cameraTarget);
+            
+            // --- VR CAMERA RIG SETUP ---
+            // In VR, the headset controls the camera locally. We move the RIG through the world.
+            cameraRig = new THREE.Group();
+            cameraRig.position.copy(cameraTarget);
+            cameraRig.add(camera);
+            scene.add(cameraRig);
 
             renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "default" }); 
             
-            // MOBILE FIX: Cap pixel ratio at 1.5 to prevent memory crashes on Retina displays
+            // MOBILE FIX: Cap pixel ratio
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.toneMapping = THREE.ACESFilmicToneMapping; 
             renderer.toneMappingExposure = 1.1;
+
+            // --- ENABLE WEBXR ---
+            renderer.xr.enabled = true;
+            document.body.appendChild(VRButton.createButton(renderer));
+
             container.appendChild(renderer.domElement);
 
             // --- LIGHTING ---
@@ -109,7 +122,7 @@
 
             // --- SPECIAL EFFECTS: Glowing Orbs ---
             const particleGeo = new THREE.BufferGeometry();
-            const particleCount = 200; // Reduced for mobile CPU, keeping it subtle
+            const particleCount = 200; 
             const posArray = new Float32Array(particleCount * 3);
             for(let i = 0; i < particleCount * 3; i++) {
                 posArray[i] = (Math.random() - 0.5) * 400;
@@ -167,7 +180,7 @@
             // 3. Water
             const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
             water = new Water(waterGeometry, {
-                textureWidth: 256, // Halved for mobile performance
+                textureWidth: 256, 
                 textureHeight: 256,
                 waterNormals: new THREE.TextureLoader(manager).load('waternormals.jpg', function (texture) {
                     texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
@@ -214,7 +227,6 @@
             loader.load('lucayan.glb', function (gltf) {
                 lucayanModel = gltf.scene;
                 lucayanModel.scale.set(5, 5, 5); 
-                // Planted firmly on the sand
                 lucayanModel.position.set(15, 6.5, 70); 
                 lucayanModel.lookAt(-15, 6.5, 80); 
                 lucayanModel.visible = false; 
@@ -229,20 +241,34 @@
             const sailBtn = document.getElementById('btn-sail');
             const landBtn = document.getElementById('btn-land');
 
+            // --- VR SCREEN TAP CONTROLS ---
+            // If the user is in VR, tapping the screen advances the scene
+            const controller = renderer.xr.getController(0);
+            controller.addEventListener('select', () => {
+                if (currentScene === 1) triggerSail();
+                else if (currentScene === 2) triggerLand();
+            });
+            scene.add(controller);
+
             const triggerSail = (e) => {
-                e.preventDefault();
-                document.getElementById('scene-map').style.opacity = '0';
-                setTimeout(() => {
-                    document.getElementById('scene-map').style.display = 'none';
-                    document.getElementById('scene-ui').style.opacity = '1';
-                    currentScene = 2;
-                }, 1500);
+                if (e) e.preventDefault();
+                const mapScene = document.getElementById('scene-map');
+                if(mapScene) {
+                    mapScene.style.opacity = '0';
+                    setTimeout(() => {
+                        mapScene.style.display = 'none';
+                        const uiScene = document.getElementById('scene-ui');
+                        if (uiScene) uiScene.style.opacity = '1';
+                        currentScene = 2;
+                    }, 1500);
+                }
             };
 
             const triggerLand = (e) => {
-                e.preventDefault();
+                if (e) e.preventDefault();
                 currentScene = 3;
-                document.getElementById('btn-land').style.display = 'none';
+                const landBtnEl = document.getElementById('btn-land');
+                if(landBtnEl) landBtnEl.style.display = 'none';
 
                 islandGroup.position.z = -80;
                 
@@ -257,13 +283,15 @@
             
             landBtn.addEventListener('click', triggerLand);
             landBtn.addEventListener('touchstart', triggerLand);
+
+            // START ANIMATION LOOP (Required for VR)
+            renderer.setAnimationLoop(animate); 
         }
 
         function createSpanishFlag() {
             const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 15);
             const poleMat = new THREE.MeshStandardMaterial({color: 0x8b5a2b});
-            flagPole = new THREE.Mesh(poleGeo, poleMat);
-            // Lowered pole base to match characters
+            flagPole = new Mesh(poleGeo, poleMat);
             flagPole.position.set(-20, 13, 80); 
             flagPole.visible = false; 
             islandGroup.add(flagPole);
@@ -280,7 +308,6 @@
             const flagGeo = new THREE.PlaneGeometry(8, 5, 10, 10);
             const flagMat = new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide });
             flagMesh = new THREE.Mesh(flagGeo, flagMat);
-            // Lowered flag cloth
             flagMesh.position.set(-16, 18, 80); 
             flagMesh.visible = false; 
             islandGroup.add(flagMesh);
@@ -293,7 +320,6 @@
         }
 
         function animate() {
-            requestAnimationFrame(animate);
             const time = clock.getElapsedTime();
 
             if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
@@ -316,7 +342,7 @@
 
             if (currentScene === 2) {
                 // EXAGGERATED BOBBING for the deep ocean in Scene 2
-                const heavyBobbing = Math.sin(time * 1.5) * 3.0; // Doubled amplitude
+                const heavyBobbing = Math.sin(time * 1.5) * 3.0; 
                 cameraTarget.set(0, 18 + heavyBobbing, 45);
                 lookAtTarget.set(0, 5 + heavyBobbing, -20);
 
@@ -326,11 +352,10 @@
             }
 
             if (currentScene === 3) {
-                // NORMAL BOBBING: Calmer since we are anchored near land
                 const bobbingAmount = Math.sin(time * 1.5) * 1.5;
-                // CAMERA ADJUST: Kept exactly the same as Scene 2's original state
-                cameraTarget.set(0, 18 + bobbingAmount, 45);
-                lookAtTarget.set(0, 5 + bobbingAmount, -20);
+                // CAMERA ADJUST: Adjusted to frame the newly lowered characters perfectly
+                cameraTarget.set(0, 12 + bobbingAmount, 25);
+                lookAtTarget.set(0, 8 + bobbingAmount, 80);
 
                 if (mainShip) {
                     mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2;
@@ -347,9 +372,9 @@
             if (currentScene === 2) {
                 if (mainShip) {
                     // EXAGGERATED SHIP PITCH AND ROLL
-                    mainShip.position.y = Math.sin(time * 1.5) * 3.0 - 2; // Steeper waves
-                    mainShip.rotation.x = Math.sin(time * 1.2) * 0.12;    // More pitch
-                    mainShip.rotation.z = Math.sin(time * 0.8) * 0.1;     // More roll
+                    mainShip.position.y = Math.sin(time * 1.5) * 3.0 - 2; 
+                    mainShip.rotation.x = Math.sin(time * 1.2) * 0.12;    
+                    mainShip.rotation.z = Math.sin(time * 0.8) * 0.1;     
                 }
                 if (companionShip) {
                     companionShip.position.y = Math.sin(time * 1.5 + 1) * 3.0 - 2;
@@ -358,9 +383,14 @@
                 }
             }
 
-            camera.position.lerp(cameraTarget, 0.02);
-            currentLookAt.lerp(lookAtTarget, 0.02);
-            camera.lookAt(currentLookAt);
+            // APPLY MOVEMENT TO THE VR RIG
+            cameraRig.position.lerp(cameraTarget, 0.02);
+            
+            // PREVENT MOTION SICKNESS: Only force the camera to rotate if NOT in VR.
+            if (!renderer.xr.isPresenting) {
+                currentLookAt.lerp(lookAtTarget, 0.02);
+                camera.lookAt(currentLookAt);
+            }
 
             renderer.render(scene, camera);
         }
