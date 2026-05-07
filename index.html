@@ -1,511 +1,509 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>The 1492 Horizon: Master Navigator VR</title>
-    <!-- WebXR Polyfill: Essential for mobile cardboard hardware -->
-    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
-    <style>
-        /* 
-           CSS DESIGN SYSTEM
-           Purpose: Creating a 'black-box' environment to prevent light bleed.
-        */
-        :root {
-            --maritime-gold: #d4af37;
-            --ocean-depth: #050402;
-            --royal-parchment: #FFF8E7;
-        }
-
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background: var(--ocean-depth); 
-            font-family: 'Georgia', serif; 
-            color: #fff; 
-            touch-action: none; 
-            position: fixed; 
-            inset: 0; 
-            user-select: none;
-        }
-
-        canvas { 
-            display: block; 
-            width: 100% !important; 
-            height: 100% !important; 
-            outline: none; 
-        }
-
-        .layer { 
-            position: absolute; 
-            inset: 0; 
-            width: 100%; 
-            height: 100%; 
-            pointer-events: none; 
-        }
-        
-        /* 
-           LOADER UI
-           Vibrant detailing for the initial user experience.
-        */
-        #loading { 
-            background: var(--ocean-depth); 
-            color: var(--maritime-gold); 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            z-index: 100; 
-            transition: opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1); 
-            pointer-events: auto;
-        }
-
-        .loader-icon {
-            width: 60px;
-            height: 60px;
-            border: 3px solid rgba(212, 175, 55, 0.1);
-            border-top: 3px solid var(--maritime-gold);
-            border-radius: 50%;
-            animation: rotateCompass 1.2s linear infinite;
-            margin-bottom: 25px;
-        }
-
-        @keyframes rotateCompass { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        #loading-text { 
-            font-size: 13px; 
-            color: #666; 
-            font-family: 'Verdana', sans-serif; 
-            letter-spacing: 4px; 
-            text-transform: uppercase;
-        }
-        
-        #three-container { z-index: 10; }
-        
-        /* 
-           VR BUTTON STYLING
-           Customizing the Three.js library-injected button.
-        */
-        #VRButton { 
-            background: rgba(212, 175, 55, 0.08) !important; 
-            border: 1px solid var(--maritime-gold) !important; 
-            color: var(--maritime-gold) !important; 
-            font-family: 'Georgia', serif !important; 
-            font-style: italic !important;
-            bottom: 50px !important;
-            letter-spacing: 3px;
-            padding: 14px 28px !important;
-            border-radius: 2px !important;
-            transition: all 0.4s ease !important;
-        }
-
-        #VRButton:hover {
-            background: var(--maritime-gold) !important;
-            color: var(--ocean-depth) !important;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Photorealistic Voyage Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Georgia', serif; color: #fff; touch-action: none; position: fixed; width: 100%; height: 100%; }
+        canvas { display: block; width: 100vw !important; height: 100vh !important; outline: none; }
+        .layer { position: absolute; inset: 0; width: 100%; height: 100%; }
+        
+        #loading { background: #111; color: #d4af37; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 20px; z-index: 100; transition: opacity 1s; text-align: center; padding: 20px; }
+        #loading-text { margin-top: 15px; font-size: 16px; color: #aaa; }
+        
+        #scene-map { background-color: #050402; background-image: url('map.png'); background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 80px; transition: opacity 1.5s; }
+        #scene-ui { z-index: 40; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; transition: opacity 1s; }
+        
+        .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 30px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); border-radius: 8px; -webkit-tap-highlight-color: transparent; }
+        .btn:active { background: #ffdf73; transform: scale(0.95); }
+        .vr-warning { color: #ffcc44; font-size: 14px; font-weight: bold; margin-top: 5px; text-align: center; padding: 0 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        #three-container { z-index: 10; }
+    </style>
 </head>
 <body>
-    <!-- Initial Interaction Layer -->
-    <div id="loading" class="layer">
-        <div class="loader-icon"></div>
-        <div style="letter-spacing: 10px; font-size: 28px; font-weight: 300; margin-bottom: 10px;">EXPEDITION 1492</div>
-        <div id="loading-text">CALIBRATING ASTROLABE: 0%</div>
-    </div>
+    <div id="loading" class="layer">
+        <div>Loading High-Fidelity Assets...</div>
+        <div id="loading-text">0%</div>
+    </div>
+    
+    <div id="scene-map" class="layer">
+        <button id="btn-sail" class="btn">Set Sail (Standard 2D)</button>
+        <p class="vr-warning">⚠️ FOR VR: Please rotate your phone sideways (Landscape) BEFORE tapping ENTER VR!</p>
+    </div>
 
-    <div id="three-container"></div>
+    <div id="scene-ui" class="layer">
+        <button id="btn-land" class="btn" style="position: absolute; bottom: 80px;">Make Landfall</button>
+    </div>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/"
-            }
-        }
-    </script>
+    <div id="three-container" class="layer"></div><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Photorealistic Voyage Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
+    <style>
+        /* CSS FIX: Prevents the canvas from spilling over the phone's safe-areas */
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Georgia', serif; color: #fff; touch-action: none; position: fixed; inset: 0; }
+        canvas { display: block; width: 100% !important; height: 100% !important; outline: none; }
+        .layer { position: absolute; inset: 0; width: 100%; height: 100%; }
+        
+        #loading { background: #111; color: #d4af37; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 20px; z-index: 100; transition: opacity 1s; text-align: center; padding: 20px; }
+        #loading-text { margin-top: 15px; font-size: 16px; color: #aaa; }
+        
+        #scene-map { background-color: #050402; background-image: url('map.png'); background-size: contain; background-position: center; background-repeat: no-repeat; z-index: 50; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 80px; transition: opacity 1.5s; }
+        #scene-ui { z-index: 40; pointer-events: none; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; transition: opacity 1s; }
+        
+        .btn { pointer-events: auto; background: linear-gradient(to bottom, #d4af37, #aa7c11); color: #000; border: 1px solid #ffdf73; padding: 15px 30px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); border-radius: 8px; -webkit-tap-highlight-color: transparent; }
+        .btn:active { background: #ffdf73; transform: scale(0.95); }
+        .vr-warning { color: #ffcc44; font-size: 14px; font-weight: bold; margin-top: 5px; text-align: center; padding: 0 20px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+        #three-container { z-index: 10; }
+    </style>
+</head>
+<body>
+    <div id="loading" class="layer">
+        <div>Loading High-Fidelity Assets...</div>
+        <div id="loading-text">0%</div>
+    </div>
+    
+    <div id="scene-map" class="layer">
+        <button id="btn-sail" class="btn">Set Sail (Standard 2D)</button>
+        <p class="vr-warning">⚠️ FOR VR: Please rotate your phone sideways (Landscape) BEFORE tapping ENTER VR!</p>
+    </div>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
-        import { Water } from 'three/addons/objects/Water.js';
-        import { VRButton } from 'three/addons/webxr/VRButton.js';
+    <div id="scene-ui" class="layer">
+        <button id="btn-land" class="btn" style="position: absolute; bottom: 80px;">Make Landfall</button>
+    </div>
 
-        /* 
-           POLYFILL INITIALIZATION
-           Reality Check: Ensures orientation sensors are mapped correctly in VR mode.
-        */
-        if (window.WebXRPolyfill) {
-            new window.WebXRPolyfill({ 
-                cardboardConfig: { 
-                    CARDBOARD_UI_DISABLED: true,
-                    ROTATE_NINETY_DEGREES: false
-                } 
-            });
-        }
+    <div id="three-container" class="layer"></div>
 
-        // --- GLOBAL ENGINE STATE ---
-        let scene, camera, renderer, water, particles, cameraRig;
-        let mainShip, companionShip, islandGroup;
-        let islandModel, columbusModel, lucayanModel, flagMesh, flagPole;
-        let vrMapPlane, sunLight, ambientLight;
-        
-        const clock = new THREE.Clock();
-        let currentScene = 1; // Logic: 1 = Map, 2 = Ocean, 3 = Landfall
-        let shipSpeed = 1.4;
-        let oceanIntensity = 1.0;
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/"
+            }
+        }
+    </script>
 
-        // --- CAMERA COORDINATE VECTORS ---
-        // These targets are interpolated in the animate loop for smooth motion.
-        let cameraTarget = new THREE.Vector3(0, 15, 0); 
-        let lookAtTarget = new THREE.Vector3(0, 8, -60);
-        let currentLookAt = new THREE.Vector3(0, 8, -60);
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+        import { Water } from 'three/addons/objects/Water.js';
+        import { VRButton } from 'three/addons/webxr/VRButton.js';
 
-        // --- ENGINE START ---
-        init();
+        // Initialize WebXR Polyfill
+        if (window.WebXRPolyfill) {
+            new window.WebXRPolyfill({
+                cardboardConfig: {
+                    CARDBOARD_UI_DISABLED: true
+                }
+            });
+        }
 
-        /**
-         * init()
-         * Configures the WebGL environment and initializes asset loaders.
-         */
-        function init() {
-            const container = document.getElementById('three-container');
-            
-            // 1. Scene setup
-            scene = new THREE.Scene();
-            // FogExp2 provides a better visual 'Fine Print' for atmosphere than standard fog.
-            scene.fog = new THREE.FogExp2(0x1a2b3c, 0.00052); 
+        let scene, camera, renderer, water, particles, cameraRig;
+        let mainShip, companionShip, islandGroup, islandModel, columbusModel, lucayanModel, flagMesh, flagPole; 
+        
+        const clock = new THREE.Clock();
+        let currentScene = 1; 
+        let shipSpeed = 1.2;
 
-            // 2. Camera Architecture
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 60000);
-            
-            // The CameraRig is a 'Symmetry Rule' fix: Headset controls Rotation, Rig controls Position.
-            cameraRig = new THREE.Group();
-            cameraRig.position.copy(cameraTarget);
-            cameraRig.add(camera);
-            scene.add(cameraRig);
+        let cameraTarget = new THREE.Vector3(0, 20, 50);
+        let lookAtTarget = new THREE.Vector3(0, 5, 0);
+        let currentLookAt = new THREE.Vector3(0, 5, 0);
 
-            // 3. Renderer Settings
-            renderer = new THREE.WebGLRenderer({ 
-                antialias: true, 
-                powerPreference: "high-performance",
-                alpha: false 
-            });
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.toneMapping = THREE.ACESFilmicToneMapping;
-            renderer.toneMappingExposure = 1.1;
-            renderer.xr.enabled = true;
-            renderer.shadowMap.enabled = true;
-            
-            document.body.appendChild(VRButton.createButton(renderer));
-            container.appendChild(renderer.domElement);
+        init();
 
-            // 4. Lighting Design (Vibrant Detailing)
-            ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
-            scene.add(ambientLight);
-            
-            const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x222222, 1.5);
-            scene.add(hemiLight);
-            
-            sunLight = new THREE.DirectionalLight(0xffdfb3, 3.2);
-            sunLight.position.set(500, 300, 200);
-            sunLight.castShadow = true;
-            sunLight.shadow.mapSize.set(2048, 2048);
-            scene.add(sunLight);
+        function init() {
+            const container = document.getElementById('three-container');
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x1a2b3c, 0.0004); 
 
-            // 5. VR Map Configuration (Scene 1)
-            // Note: Map is a 3D mesh because 2D DOM elements are invisible in VR.
-            const textureLoader = new THREE.TextureLoader();
-            const mapTex = textureLoader.load('map.png');
-            const mapGeo = new THREE.PlaneGeometry(16, 10);
-            const mapMat = new THREE.MeshBasicMaterial({ 
-                map: mapTex, 
-                transparent: true, 
-                side: THREE.DoubleSide,
-                opacity: 0.98
-            });
-            vrMapPlane = new THREE.Mesh(mapGeo, mapMat);
-            vrMapPlane.position.set(0, 15, -12); 
-            scene.add(vrMapPlane);
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
+            
+            cameraRig = new THREE.Group();
+            cameraRig.position.copy(cameraTarget);
+            cameraRig.add(camera);
+            scene.add(cameraRig);
 
-            // 6. Particle Physics (Atmospheric Sea Spray)
-            const pGeo = new THREE.BufferGeometry();
-            const pCount = 6000;
-            const pPos = new Float32Array(pCount * 3);
-            for(let i=0; i < pCount * 3; i++) {
-                pPos[i] = (Math.random() - 0.5) * 1600;
-            }
-            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-            
-            particles = new THREE.Points(pGeo, new THREE.PointsMaterial({ 
-                size: 2.2, 
-                color: 0xd4af37, 
-                transparent: true, 
-                opacity: 0.5,
-                blending: THREE.AdditiveBlending,
-                depthWrite: false
-            }));
-            scene.add(particles);
+            renderer = new THREE.WebGLRenderer({ antialias: false }); 
+            const pixelRatio = window.innerWidth < 800 ? 1.0 : Math.min(window.devicePixelRatio, 1.5);
+            renderer.setPixelRatio(pixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; 
+            renderer.toneMappingExposure = 1.1;
+            renderer.xr.enabled = true;
+            
+            // Create VR Button
+            const vrButton = VRButton.createButton(renderer);
+            document.body.appendChild(vrButton);
 
-            // 7. Loading Manager
-            const manager = new THREE.LoadingManager();
-            manager.onProgress = (u, l, t) => { 
-                const progress = Math.round((l / t) * 100);
-                document.getElementById('loading-text').innerText = `CALIBRATING HORIZON: ${progress}%`; 
-            };
-            manager.onLoad = () => { 
-                document.getElementById('loading').style.opacity = '0'; 
-                setTimeout(() => {
-                    if(document.getElementById('loading')) document.getElementById('loading').remove();
-                }, 1500); 
-            };
+            // FORCE FULLSCREEN ON VR START
+            vrButton.addEventListener('click', () => {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            });
+            
+            container.appendChild(renderer.domElement);
 
-            // 8. Water & Skybox
-            new RGBELoader(manager).load('sunset_sky.hdr', (tex) => {
-                tex.mapping = THREE.EquirectangularReflectionMapping;
-                scene.background = tex; 
-                scene.environment = tex;
-            });
+            // Lighting & Particles (Omitted for brevity, kept exactly the same as previous)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); 
+            scene.add(ambientLight);
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
+            scene.add(hemiLight);
+            const sunLight = new THREE.DirectionalLight(0xffdfb3, 2.5);
+            sunLight.position.set(200, 150, 100);
+            scene.add(sunLight);
 
-            water = new Water(new THREE.PlaneGeometry(50000, 50000), {
-                textureWidth: 512, 
-                textureHeight: 512,
-                waterNormals: textureLoader.load('waternormals.jpg', (t) => { 
-                    t.wrapS = t.wrapT = THREE.RepeatWrapping; 
-                }),
-                sunDirection: new THREE.Vector3(1, 1, 1).normalize(),
-                sunColor: 0xffdfb3,
-                waterColor: 0x001e0f,
-                distortionScale: 4.5,
-                fog: true
-            });
-            water.rotation.x = -Math.PI / 2;
-            scene.add(water);
+            const particleGeo = new THREE.BufferGeometry();
+            const posArray = new Float32Array(600);
+            for(let i = 0; i < 600; i++) posArray[i] = (Math.random() - 0.5) * 400;
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 32; pCanvas.height = 32;
+            const pCtx = pCanvas.getContext('2d');
+            const pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            pGrad.addColorStop(0, 'rgba(255,255,255,1)'); pGrad.addColorStop(0.2, 'rgba(255,204,68,1)'); pGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            pCtx.fillStyle = pGrad; pCtx.fillRect(0,0,32,32);
+            particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({ size: 2.0, map: new THREE.CanvasTexture(pCanvas), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+            scene.add(particles);
 
-            // 9. 3D Assets (The Fleet)
-            const gltfLoader = new GLTFLoader(manager);
-            gltfLoader.load('ship.glb', (gltf) => {
-                mainShip = gltf.scene; 
-                mainShip.scale.set(5.5, 5.5, 5.5); 
-                mainShip.position.set(0, -3.5, -30);
-                mainShip.traverse(n => { if(n.isMesh) n.castShadow = true; });
-                scene.add(mainShip);
-                
-                companionShip = mainShip.clone(); 
-                companionShip.position.set(-60, -3.5, -60); 
-                companionShip.rotation.y = 0.2; 
-                scene.add(companionShip);
-            });
+            islandGroup = new THREE.Group();
+            islandGroup.position.set(0, 0, -3000); 
+            scene.add(islandGroup);
 
-            islandGroup = new THREE.Group();
-            islandGroup.position.set(0, 0, -8000);
-            scene.add(islandGroup);
+            const manager = new THREE.LoadingManager();
+            manager.onProgress = (url, loaded, total) => { document.getElementById('loading-text').innerText = `${Math.round((loaded/total)*100)}%`; };
+            manager.onLoad = () => { document.getElementById('loading').style.opacity = '0'; setTimeout(() => document.getElementById('loading').remove(), 1000); };
 
-            gltfLoader.load('island.glb', (gltf) => { 
-                islandModel = gltf.scene; 
-                islandModel.scale.set(90, 90, 90); 
-                islandModel.position.set(0, -12, 0); 
-                islandGroup.add(islandModel); 
-            });
+            new RGBELoader(manager).load('sunset_sky.hdr', (texture) => {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+                scene.background = texture; scene.environment = texture;
+            });
 
-            // Historical Personalities
-            gltfLoader.load('columbus.glb', (gltf) => { 
-                columbusModel = gltf.scene; 
-                columbusModel.scale.set(7, 7, 7); 
-                columbusModel.position.set(-30, 8, 150); 
-                columbusModel.visible = false; 
-                islandGroup.add(columbusModel); 
-            });
+            water = new Water(new THREE.PlaneGeometry(10000, 10000), {
+                textureWidth: 256, textureHeight: 256,
+                waterNormals: new THREE.TextureLoader(manager).load('waternormals.jpg', (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; }),
+                sunDirection: new THREE.Vector3(1, 1, 1).normalize(), sunColor: 0xffdfb3, waterColor: 0x001e0f, distortionScale: 3.7,
+            });
+            water.rotation.x = -Math.PI / 2; scene.add(water);
 
-            gltfLoader.load('lucayan.glb', (gltf) => { 
-                lucayanModel = gltf.scene; 
-                lucayanModel.scale.set(7, 7, 7); 
-                lucayanModel.position.set(30, 8, 120); 
-                lucayanModel.visible = false; 
-                islandGroup.add(lucayanModel); 
-            });
+            const loader = new GLTFLoader(manager);
+            loader.load('ship.glb', (gltf) => {
+                mainShip = gltf.scene; mainShip.scale.set(5, 5, 5); mainShip.position.set(0, -2, 0); scene.add(mainShip);
+                companionShip = mainShip.clone(); companionShip.position.set(-25, -2, -15); companionShip.rotation.y = 0.05; scene.add(companionShip);
+            });
+            loader.load('island.glb', (gltf) => { islandModel = gltf.scene; islandModel.scale.set(50, 50, 50); islandModel.position.set(0, -5, 0); islandGroup.add(islandModel); });
+            loader.load('columbus.glb', (gltf) => { columbusModel = gltf.scene; columbusModel.scale.set(5, 5, 5); columbusModel.position.set(-15, 6.5, 80); columbusModel.visible = false; islandGroup.add(columbusModel); });
+            loader.load('lucayan.glb', (gltf) => { lucayanModel = gltf.scene; lucayanModel.scale.set(5, 5, 5); lucayanModel.position.set(15, 6.5, 70); lucayanModel.lookAt(-15, 6.5, 80); lucayanModel.visible = false; islandGroup.add(lucayanModel); });
 
-            createSpanishFlag();
+            createSpanishFlag();
 
-            // 10. Navigation State Machine
-            const advanceVoyage = () => {
-                switch(currentScene) {
-                    case 1: // Move from Map to Voyage
-                        currentScene = 2;
-                        vrMapPlane.visible = false;
-                        cameraTarget.set(0, 25, 75); // Teleport to Deck
-                        break;
-                    case 2: // Move from Voyage to Landfall
-                        currentScene = 3;
-                        islandGroup.position.z = -150;
-                        cameraTarget.set(0, 10, 50); // Teleport to Beach
-                        if(columbusModel) columbusModel.visible = true;
-                        if(lucayanModel) lucayanModel.visible = true;
-                        if(flagMesh) flagMesh.visible = true;
-                        if(flagPole) flagPole.visible = true;
-                        break;
-                }
-            };
+            const triggerSail = () => { 
+                currentScene = 2; 
+                document.getElementById('scene-map').style.display = 'none'; 
+                document.getElementById('scene-ui').style.opacity = '1'; 
+            };
+            
+            const triggerLand = () => { 
+                currentScene = 3; 
+                document.getElementById('btn-land').style.display = 'none'; 
+                islandGroup.position.z = -80; 
+                columbusModel.visible = true; lucayanModel.visible = true; flagPole.visible = true; flagMesh.visible = true; 
+            };
 
-            // 11. VR Input Handlers (Reality Check: Using Controller Select)
-            const controller = renderer.xr.getController(0);
-            controller.addEventListener('select', () => {
-                // Clicking the screen/trigger advances the simulation
-                advanceVoyage();
-            });
-            scene.add(controller);
+            document.getElementById('btn-sail').addEventListener('click', (e) => { e.preventDefault(); triggerSail(); });
+            document.getElementById('btn-land').addEventListener('click', (e) => { e.preventDefault(); triggerLand(); });
 
-            // 12. Horizon Symmetry Reset
-            renderer.xr.addEventListener('sessionstart', () => {
-                // SENSORY RESET: Wait 1500ms for gyroscope to settle in landscape.
-                setTimeout(() => {
-                    cameraRig.rotation.set(0, 0, 0);
-                    camera.rotation.set(0, 0, 0);
-                    camera.position.set(0, 0, 0);
-                    onWindowResize();
-                }, 1500);
-            });
+            renderer.xr.addEventListener('sessionstart', () => {
+                if (currentScene === 1) triggerSail();
+                document.getElementById('scene-map').style.display = 'none';
+                document.getElementById('scene-ui').style.display = 'none';
+                camera.rotation.set(0, 0, 0);
 
-            window.addEventListener('resize', onWindowResize);
-            renderer.setAnimationLoop(animate);
-        }
+                // FIX: Forces the split-screen to recalculate its aspect ratio AFTER the phone rotates
+                setTimeout(() => {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }, 200);
+            });
 
-        /**
-         * createSpanishFlag()
-         * Procedurally generating the Royal Standard with high-density vertex mesh.
-         */
-        function createSpanishFlag() {
-            flagPole = new THREE.Mesh(
-                new THREE.CylinderGeometry(0.3, 0.3, 30), 
-                new THREE.MeshStandardMaterial({ color: 0x4d3222, roughness: 0.9 })
-            );
-            flagPole.position.set(-35, 20, 150); 
-            flagPole.visible = false;
-            islandGroup.add(flagPole);
+            const handleVRClick = (e) => { if (renderer.xr.isPresenting && currentScene === 2) triggerLand(); };
+            window.addEventListener('pointerdown', handleVRClick);
+            window.addEventListener('touchstart', handleVRClick);
 
-            const canvas = document.createElement('canvas'); 
-            canvas.width = 1024; canvas.height = 512;
-            const ctx = canvas.getContext('2d'); 
-            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1024, 512); 
-            ctx.fillStyle = '#cc0000'; 
-            ctx.fillRect(430, 0, 164, 512); 
-            ctx.fillRect(0, 180, 1024, 152);
-            
-            // Subdivided Mesh for Sinusoidal Symmetry
-            const flagGeo = new THREE.PlaneGeometry(18, 10, 50, 50);
-            const flagMat = new THREE.MeshStandardMaterial({ 
-                map: new THREE.CanvasTexture(canvas), 
-                side: THREE.DoubleSide,
-                roughness: 0.95,
-                metalness: 0.1
-            });
-            
-            flagMesh = new THREE.Mesh(flagGeo, flagMat);
-            flagMesh.position.set(-24, 28, 150); 
-            flagMesh.visible = false;
-            islandGroup.add(flagMesh);
-        }
+            // The native WebXR "tap" event, which is required by many mobile headsets
+            const controller = renderer.xr.getController(0);
+            controller.addEventListener('select', handleVRClick);
+            scene.add(controller);
 
-        /**
-         * onWindowResize()
-         * Standard window-to-camera matrix synchronization.
-         */
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+            window.addEventListener('resize', onWindowResize);
+            renderer.setAnimationLoop(animate);
+        }
 
-        /**
-         * animate()
-         * The Main Simulation Loop. 
-         * Logic: Displacement, Physics, Rigging, Render.
-         */
-        function animate() {
-            const time = clock.getElapsedTime();
-            const delta = clock.getDelta();
+        function createSpanishFlag() {
+            flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 15), new THREE.MeshStandardMaterial({color: 0x8b5a2b}));
+            flagPole.position.set(-20, 13, 80); flagPole.visible = false; islandGroup.add(flagPole);
+            const fCanvas = document.createElement('canvas'); fCanvas.width = 256; fCanvas.height = 128;
+            const fCtx = fCanvas.getContext('2d'); fCtx.fillStyle = '#ffffff'; fCtx.fillRect(0,0,256,128); fCtx.fillStyle = '#cc0000'; fCtx.fillRect(110,0,36,128); fCtx.fillRect(0,46,256,36);
+            flagMesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 5, 10, 10), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(fCanvas), side: THREE.DoubleSide }));
+            flagMesh.position.set(-16, 18, 80); flagMesh.visible = false; islandGroup.add(flagMesh);
+        }
 
-            // 1. Fluid displacement update
-            if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
-            
-            // 2. Sea Spray Sway (Infinite Drift)
-            if (particles) {
-                particles.rotation.y += 0.0018;
-                particles.position.z += 0.5;
-                if(particles.position.z > 500) particles.position.z = -1000;
-            }
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
 
-            // 3. Vertex displacement for the Royal Standard
-            // Wave Physics: $z = \sin(x \cdot 1.4 - t \cdot 6) \cdot (\frac{x+9}{18})$
-            if (flagMesh && flagMesh.visible) {
-                const pos = flagMesh.geometry.attributes.position;
-                for(let i = 0; i < pos.count; i++) {
-                    const x = pos.getX(i);
-                    const wave = Math.sin(x * 1.5 - time * 6.5) * 1.5;
-                    // Clamp physics at the pole (x = -9)
-                    pos.setZ(i, wave * (x + 9) / 18); 
-                }
-                flagMesh.geometry.attributes.position.needsUpdate = true;
-            }
+        function animate() {
+            const time = clock.getElapsedTime();
+            if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
+            if (particles) { particles.rotation.y = time * 0.05; particles.position.z += 0.2; if (particles.position.z > 100) particles.position.z = -200; }
+            if (flagMesh && flagMesh.visible) {
+                const pos = flagMesh.geometry.attributes.position;
+                for(let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 1.5 - time * 5) * 0.8);
+                flagMesh.geometry.attributes.position.needsUpdate = true;
+            }
 
-            // 4. Navigation Physics State
-            if (currentScene === 1) {
-                // Subtle map breathing
-                cameraTarget.y = 15 + Math.sin(time * 0.8) * 0.9;
-            } 
-            else if (currentScene === 2) {
-                // Ocean Voyage Displacement
-                const pitch = Math.sin(time * 1.7) * 4.2;
-                cameraTarget.set(0, 25 + pitch, 75);
-                
-                // Land approximation
-                if (islandGroup.position.z < -150) {
-                    islandGroup.position.z += shipSpeed;
-                }
+            if (currentScene === 2) {
+                const hb = Math.sin(time * 1.5) * 3.0; cameraTarget.set(0, 18 + hb, 45); lookAtTarget.set(0, 5 + hb, -20);
+                if (islandGroup.position.z < -80) islandGroup.position.z += shipSpeed;
+                if (mainShip) { mainShip.position.y = hb - 2; mainShip.rotation.x = Math.sin(time * 1.2) * 0.12; mainShip.rotation.z = Math.sin(time * 0.8) * 0.1; }
+                if (companionShip) { companionShip.position.y = Math.sin(time * 1.5 + 1) * 3.0 - 2; companionShip.rotation.x = Math.sin(time * 1.2 + 1) * 0.12; companionShip.rotation.z = Math.sin(time * 0.8 + 1) * 0.1 - 0.05; }
+            } else if (currentScene === 3) {
+                const ba = Math.sin(time * 1.5) * 1.5; cameraTarget.set(0, 12 + ba, 25); lookAtTarget.set(0, 8 + ba, 80);
+                if (mainShip) { mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2; mainShip.rotation.x = 0.01; }
+            }
 
-                // Model Physics (Synchronization Rule)
-                if (mainShip) {
-                    mainShip.position.y = pitch - 4.5;
-                    mainShip.rotation.x = Math.sin(time * 1.5) * 0.25;
-                    mainShip.rotation.z = Math.sin(time * 1.2) * 0.20;
-                }
-                if (companionShip) {
-                    const offsetPitch = Math.sin(time * 1.7 + 1.8) * 4.2;
-                    companionShip.position.y = offsetPitch - 4.5;
-                    companionShip.rotation.x = Math.sin(time * 1.5 + 1.8) * 0.25;
-                }
-            } 
-            else if (currentScene === 3) {
-                // Shore-side Sway
-                cameraTarget.y = 10 + Math.sin(time * 1.2) * 0.8; 
-            }
-
-            // 5. THE ADMIRAL'S HEAD RULE (VR RIGGING)
-            // Reality Check: Never touch camera.rotation in VR. 
-            // We interpolate the rig's position to smooth out the ocean displacement.
-            cameraRig.position.lerp(cameraTarget, 0.05);
-
-            if (!renderer.xr.isPresenting) {
-                // 2D MODE: Automated Look-At for desktop views
-                currentLookAt.lerp(lookAtTarget, 0.05);
-                camera.lookAt(currentLookAt);
-            } else {
-                // VR MODE: Decouple rotation entirely to enable user head tracking.
-                // We ensure the camera's local rotation is zeroed out to the rig.
-                camera.rotation.order = 'YXZ';
-            }
-
-            // 6. Final Render
-            renderer.render(scene, camera);
-        }
-
-        /* 
-           NAVIGATOR'S LOG:
-           1. Ensure 'sunset_sky.hdr' is 4K resolution for environment mapping.
-           2. 'waternormals.jpg' should be a tiling texture.
-           3. Scene 3 is triggered by a headset interaction (select event).
-        */
-    </script>
+            cameraRig.position.lerp(cameraTarget, 0.02);
+            if (!renderer.xr.isPresenting) {
+                currentLookAt.lerp(lookAtTarget, 0.02);
+                camera.lookAt(currentLookAt);
+            } else {
+                camera.rotation.set(0, 0, 0); 
+            }
+            renderer.render(scene, camera);
+        }
+    </script>
 </body>
 </html>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+        import { Water } from 'three/addons/objects/Water.js';
+        import { VRButton } from 'three/addons/webxr/VRButton.js';
+
+        // Initialize WebXR Polyfill
+        if (window.WebXRPolyfill) {
+            new window.WebXRPolyfill({
+                cardboardConfig: {
+                    CARDBOARD_UI_DISABLED: true
+                }
+            });
+        }
+
+        let scene, camera, renderer, water, particles, cameraRig;
+        let mainShip, companionShip, islandGroup, islandModel, columbusModel, lucayanModel, flagMesh, flagPole; 
+        
+        const clock = new THREE.Clock();
+        let currentScene = 1; 
+        let shipSpeed = 1.2;
+
+        let cameraTarget = new THREE.Vector3(0, 20, 50);
+        let lookAtTarget = new THREE.Vector3(0, 5, 0);
+        let currentLookAt = new THREE.Vector3(0, 5, 0);
+
+        init();
+
+        function init() {
+            const container = document.getElementById('three-container');
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x1a2b3c, 0.0004); 
+
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 1, 20000);
+            
+            cameraRig = new THREE.Group();
+            cameraRig.position.copy(cameraTarget);
+            cameraRig.add(camera);
+            scene.add(cameraRig);
+
+            renderer = new THREE.WebGLRenderer({ antialias: false }); 
+            const pixelRatio = window.innerWidth < 800 ? 1.0 : Math.min(window.devicePixelRatio, 1.5);
+            renderer.setPixelRatio(pixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; 
+            renderer.toneMappingExposure = 1.1;
+            renderer.xr.enabled = true;
+            
+            // Create VR Button
+            const vrButton = VRButton.createButton(renderer);
+            document.body.appendChild(vrButton);
+
+            // FORCE FULLSCREEN ON VR START
+            vrButton.addEventListener('click', () => {
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                }
+            });
+            
+            container.appendChild(renderer.domElement);
+
+            // Lighting & Particles (Omitted for brevity, kept exactly the same as previous)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); 
+            scene.add(ambientLight);
+            const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0);
+            scene.add(hemiLight);
+            const sunLight = new THREE.DirectionalLight(0xffdfb3, 2.5);
+            sunLight.position.set(200, 150, 100);
+            scene.add(sunLight);
+
+            const particleGeo = new THREE.BufferGeometry();
+            const posArray = new Float32Array(600);
+            for(let i = 0; i < 600; i++) posArray[i] = (Math.random() - 0.5) * 400;
+            particleGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 32; pCanvas.height = 32;
+            const pCtx = pCanvas.getContext('2d');
+            const pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            pGrad.addColorStop(0, 'rgba(255,255,255,1)'); pGrad.addColorStop(0.2, 'rgba(255,204,68,1)'); pGrad.addColorStop(1, 'rgba(0,0,0,0)');
+            pCtx.fillStyle = pGrad; pCtx.fillRect(0,0,32,32);
+            particles = new THREE.Points(particleGeo, new THREE.PointsMaterial({ size: 2.0, map: new THREE.CanvasTexture(pCanvas), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+            scene.add(particles);
+
+            islandGroup = new THREE.Group();
+            islandGroup.position.set(0, 0, -3000); 
+            scene.add(islandGroup);
+
+            const manager = new THREE.LoadingManager();
+            manager.onProgress = (url, loaded, total) => { document.getElementById('loading-text').innerText = `${Math.round((loaded/total)*100)}%`; };
+            manager.onLoad = () => { document.getElementById('loading').style.opacity = '0'; setTimeout(() => document.getElementById('loading').remove(), 1000); };
+
+            new RGBELoader(manager).load('sunset_sky.hdr', (texture) => {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+                scene.background = texture; scene.environment = texture;
+            });
+
+            water = new Water(new THREE.PlaneGeometry(10000, 10000), {
+                textureWidth: 256, textureHeight: 256,
+                waterNormals: new THREE.TextureLoader(manager).load('waternormals.jpg', (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; }),
+                sunDirection: new THREE.Vector3(1, 1, 1).normalize(), sunColor: 0xffdfb3, waterColor: 0x001e0f, distortionScale: 3.7,
+            });
+            water.rotation.x = -Math.PI / 2; scene.add(water);
+
+            const loader = new GLTFLoader(manager);
+            loader.load('ship.glb', (gltf) => {
+                mainShip = gltf.scene; mainShip.scale.set(5, 5, 5); mainShip.position.set(0, -2, 0); scene.add(mainShip);
+                companionShip = mainShip.clone(); companionShip.position.set(-25, -2, -15); companionShip.rotation.y = 0.05; scene.add(companionShip);
+            });
+            loader.load('island.glb', (gltf) => { islandModel = gltf.scene; islandModel.scale.set(50, 50, 50); islandModel.position.set(0, -5, 0); islandGroup.add(islandModel); });
+            loader.load('columbus.glb', (gltf) => { columbusModel = gltf.scene; columbusModel.scale.set(5, 5, 5); columbusModel.position.set(-15, 6.5, 80); columbusModel.visible = false; islandGroup.add(columbusModel); });
+            loader.load('lucayan.glb', (gltf) => { lucayanModel = gltf.scene; lucayanModel.scale.set(5, 5, 5); lucayanModel.position.set(15, 6.5, 70); lucayanModel.lookAt(-15, 6.5, 80); lucayanModel.visible = false; islandGroup.add(lucayanModel); });
+
+            createSpanishFlag();
+
+            const triggerSail = () => { 
+                currentScene = 2; 
+                document.getElementById('scene-map').style.display = 'none'; 
+                document.getElementById('scene-ui').style.opacity = '1'; 
+            };
+            
+            const triggerLand = () => { 
+                currentScene = 3; 
+                document.getElementById('btn-land').style.display = 'none'; 
+                islandGroup.position.z = -80; 
+                columbusModel.visible = true; lucayanModel.visible = true; flagPole.visible = true; flagMesh.visible = true; 
+            };
+
+            document.getElementById('btn-sail').addEventListener('click', (e) => { e.preventDefault(); triggerSail(); });
+            document.getElementById('btn-land').addEventListener('click', (e) => { e.preventDefault(); triggerLand(); });
+
+            renderer.xr.addEventListener('sessionstart', () => {
+                if (currentScene === 1) triggerSail();
+                document.getElementById('scene-map').style.display = 'none';
+                document.getElementById('scene-ui').style.display = 'none';
+                camera.rotation.set(0, 0, 0);
+            });
+
+            const handleVRClick = (e) => { if (renderer.xr.isPresenting && currentScene === 2) triggerLand(); };
+            window.addEventListener('pointerdown', handleVRClick);
+
+            window.addEventListener('resize', onWindowResize);
+            renderer.setAnimationLoop(animate);
+        }
+
+        function createSpanishFlag() {
+            flagPole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 15), new THREE.MeshStandardMaterial({color: 0x8b5a2b}));
+            flagPole.position.set(-20, 13, 80); flagPole.visible = false; islandGroup.add(flagPole);
+            const fCanvas = document.createElement('canvas'); fCanvas.width = 256; fCanvas.height = 128;
+            const fCtx = fCanvas.getContext('2d'); fCtx.fillStyle = '#ffffff'; fCtx.fillRect(0,0,256,128); fCtx.fillStyle = '#cc0000'; fCtx.fillRect(110,0,36,128); fCtx.fillRect(0,46,256,36);
+            flagMesh = new THREE.Mesh(new THREE.PlaneGeometry(8, 5, 10, 10), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(fCanvas), side: THREE.DoubleSide }));
+            flagMesh.position.set(-16, 18, 80); flagMesh.visible = false; islandGroup.add(flagMesh);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            const time = clock.getElapsedTime();
+            if (water) water.material.uniforms['time'].value += 1.0 / 60.0;
+            if (particles) { particles.rotation.y = time * 0.05; particles.position.z += 0.2; if (particles.position.z > 100) particles.position.z = -200; }
+            if (flagMesh && flagMesh.visible) {
+                const pos = flagMesh.geometry.attributes.position;
+                for(let i = 0; i < pos.count; i++) pos.setZ(i, Math.sin(pos.getX(i) * 1.5 - time * 5) * 0.8);
+                flagMesh.geometry.attributes.position.needsUpdate = true;
+            }
+
+            if (currentScene === 2) {
+                const hb = Math.sin(time * 1.5) * 3.0; cameraTarget.set(0, 18 + hb, 45); lookAtTarget.set(0, 5 + hb, -20);
+                if (islandGroup.position.z < -80) islandGroup.position.z += shipSpeed;
+                if (mainShip) { mainShip.position.y = hb - 2; mainShip.rotation.x = Math.sin(time * 1.2) * 0.12; mainShip.rotation.z = Math.sin(time * 0.8) * 0.1; }
+                if (companionShip) { companionShip.position.y = Math.sin(time * 1.5 + 1) * 3.0 - 2; companionShip.rotation.x = Math.sin(time * 1.2 + 1) * 0.12; companionShip.rotation.z = Math.sin(time * 0.8 + 1) * 0.1 - 0.05; }
+            } else if (currentScene === 3) {
+                const ba = Math.sin(time * 1.5) * 1.5; cameraTarget.set(0, 12 + ba, 25); lookAtTarget.set(0, 8 + ba, 80);
+                if (mainShip) { mainShip.position.y = Math.sin(time * 1.0) * 0.3 - 2; mainShip.rotation.x = 0.01; }
+            }
+
+            cameraRig.position.lerp(cameraTarget, 0.02);
+            if (!renderer.xr.isPresenting) {
+                currentLookAt.lerp(lookAtTarget, 0.02);
+                camera.lookAt(currentLookAt);
+            } else {
+                camera.rotation.set(0, 0, 0); 
+            }
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
+
+it must be as long as or longer than this
+if u cannot gnerate the whole thing in 1 answer split it into 2
